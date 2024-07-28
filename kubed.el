@@ -502,7 +502,9 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                          `(list (,read-fun "Edit"))))
          (unless (bound-and-true-p server-process) (server-start))
          (let ((process-environment
-                (cons (concat "KUBE_EDITOR=" emacsclient-program-name)
+                (cons ,(if (<= 30 emacs-major-version)
+                           '(concat "KUBE_EDITOR=" 'emacsclient-program-name)
+                         "KUBE_EDITOR=emacsclient")
                       process-environment)))
            (start-process ,(format "*kubed-%S-edit*" plrl-var) nil
                           kubed-kubectl-program "edit"
@@ -848,7 +850,19 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          "E" #',expl-cmd
          ,@prf-keys))))
 
-(defvar tramp-kubernetes-namespace)
+(defmacro kubed--static-if (condition then-form &rest else-forms)
+  "A conditional compilation macro.
+Evaluate CONDITION at macro-expansion time.  If it is non-nil, expand
+the macro to THEN-FORM.  Otherwise expand it to ELSE-FORMS enclosed in a
+‘progn’ form.  ELSE-FORMS may be empty.
+
+This is the same as `static-if' from Emacs 30, defined here for
+compatibility with earlier Emacs versions."
+  (declare (indent 2)
+           (debug (sexp sexp &rest sexp)))
+  (if (eval condition lexical-binding)
+      then-form
+    (cons 'progn else-forms)))
 
 ;;;###autoload (autoload 'kubed-display-pod "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-pod "kubed" nil t)
@@ -886,12 +900,39 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
            "X" #'kubed-exec
            "F" #'kubed-forward-port-to-pod)
   (dired "C-d" "Start Dired in home directory of first container of"
-         (let ((ns (when k8sns (concat "%" k8sns))))
-           (dired (concat "/kubernetes:" pod ns ":"))))
+         ;; Explicit namespace in Kuberenetes remote file names
+         ;; introduced in Emacs 31.  See Bug#59797.
+         (kubed--static-if (<= 31 emacs-major-version)
+             (let ((ns (when k8sns (concat "%" k8sns))))
+               (dired (concat "/kubernetes:" pod ns ":")))
+           (when k8sns
+             (if (y-or-n-p
+                  (format "Starting Dired in a pod in a different namespace \
+requires Emacs 31 or later.
+You can proceed by first switching your current namespace.
+Switch to namespace `%s' and proceed?" k8sns))
+                 (kubed-set-namespace k8sns)
+               (user-error
+                "Cannot start Dired in a pod in different namespace `%s'"
+                k8sns)))
+           (dired (concat "/kubernetes:" pod ":"))))
   (shell "s" "Start shell in home directory of first container of"
-         (let* ((ns (when k8sns (concat "%" k8sns)))
-                (default-directory (concat "/kubernetes:" pod ns ":")))
-           (shell (format "*kubed-pod-%s-shell*" pod))))
+         (kubed--static-if (<= 31 emacs-major-version)
+             (let* ((ns (when k8sns (concat "%" k8sns)))
+                    (default-directory (concat "/kubernetes:" pod ns ":")))
+               (shell (format "*kubed-pod-%s-shell*" pod)))
+           (when k8sns
+             (if (y-or-n-p
+                  (format "Starting Shell in a pod in a different namespace \
+requires Emacs 31 or later.
+You can proceed by first switching your current namespace.
+Switch to namespace `%s' and proceed?" k8sns))
+                 (kubed-set-namespace k8sns)
+               (user-error
+                "Cannot start Dired in a pod in different namespace `%s'"
+                k8sns)))
+           (let* ((default-directory (concat "/kubernetes:" pod ":")))
+             (shell (format "*kubed-pod-%s-shell*" pod)))))
   (attach "a" "Attach to remote process running on"
           (kubed-attach pod (kubed-read-container pod "Container" t k8sns)
                         k8sns t t))
