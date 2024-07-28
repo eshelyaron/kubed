@@ -996,7 +996,19 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 ;;;###autoload (autoload 'kubed-create-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-deployment-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource deployment
-    ((reps ".status.replicas" 4
+    ((ready ".status.readyReplicas" 6
+           (lambda (l r) (< (string-to-number l) (string-to-number r)))
+           (lambda (s) (if (string= s "<none>") "0" s))
+           :right-align t)
+     (updated ".status.updatedReplicas" 8
+           (lambda (l r) (< (string-to-number l) (string-to-number r)))
+           (lambda (s) (if (string= s "<none>") "0" s))
+           :right-align t)
+     (available ".status.availableReplicas" 10
+           (lambda (l r) (< (string-to-number l) (string-to-number r)))
+           (lambda (s) (if (string= s "<none>") "0" s))
+           :right-align t)
+     (reps ".status.replicas" 4
            (lambda (l r) (< (string-to-number l) (string-to-number r)))
            nil                          ; formatting function
            :right-align t)
