@@ -964,7 +964,12 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 ;;;###autoload (autoload 'kubed-list-services "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-service "kubed" nil t)
 ;;;###autoload (autoload 'kubed-service-prefix-map "kubed" nil t 'keymap)
-(kubed-define-resource service)
+(kubed-define-resource service
+    ((type ".spec.type" 12)
+     (clusterip ".spec.clusterIP" 16)
+     (externalip ".spec.externalIPs[*]" 16)
+     (ports ".spec.ports[*].port" 6)
+     (creationtimestamp ".metadata.creationTimestamp" 20)))
 
 ;;;###autoload (autoload 'kubed-display-secret "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-secret "kubed" nil t)
