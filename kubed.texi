@@ -91,7 +91,9 @@ can clone the Kubed Git repository from any of the following locations:
 @itemize
 @item
 @url{https://git.sr.ht/~eshel/kubed}
+@item
 @url{https://github.com/eshelyaron/kubed.git}
+@item
 @url{git://git.eshelyaron.com/kubed.git}
 @end itemize
 
