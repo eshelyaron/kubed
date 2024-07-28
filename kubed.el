@@ -1842,6 +1842,9 @@ Optional argument DEFAULT is the minibuffer default argument."
 (defvar kubed-kubectl-command-history nil
   "Minibuffer history for `kubed-kubectl-command'.")
 
+(declare-function cobra-read-command-line "cobra"
+                  (prompt initial &optional hist))
+
 ;;;###autoload
 (defun kubed-kubectl-command (command)
   "Execute `kubectl' COMMAND.
