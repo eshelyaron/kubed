@@ -26,4 +26,4 @@ can clone the Kubed Git repository from any of the following locations:
 
 To get started with Kubed, all you need is `kubectl` and Emacs.  For
 information about usage and customization, see the Kubed manual in Info
-or online at https:/eshelyaron.com/kubed.html
+or online at https://eshelyaron.com/kubed.html
