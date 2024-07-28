@@ -1,0 +1,15 @@
+#+title:                 Kubed NEWS -- history of user-visible changes
+#+author:                Eshel Yaron
+#+email:                 me@eshelyaron.com
+#+language:              en
+#+options:               ':t toc:nil num:nil ^:{}
+
+This file contains the release notes for Kubed, a rich Emacs interface
+for Kubernetes.
+
+For further details, see the Kubed manual:
+[[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
+
+* Version 0.1.0 on 2024-08-01
+
+Initial release.

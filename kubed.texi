@@ -1,0 +1,164 @@
+\input texinfo    @c -*- texinfo -*-
+@c %**start of header
+@setfilename kubed.info
+@settitle Kubed: Kubernetes, Emacs, done!
+@documentencoding UTF-8
+@documentlanguage en
+@set MAINTAINERSITE @uref{https://eshelyaron.com,maintainer webpage}
+@set MAINTAINER Eshel Yaron
+@set MAINTAINEREMAIL @email{me@eshelyaron.com}
+@set MAINTAINERCONTACT @uref{mailto:me@eshelyaron.com,contact the maintainer}
+@c %**end of header
+
+@copying
+This manual is for Kubed 0.1.0, a rich Emacs interface for Kubernetes.
+
+Copyright @copyright{} 2024 Eshel Yaron.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* Kubed: (kubed).       Kubernetes, Emacs, done!
+@end direntry
+
+@finalout
+@titlepage
+@title Kubed: Kubernetes, Emacs, done!
+@author Eshel Yaron (@email{me@@eshelyaron.com})
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top Kubed: Kubernetes, Emacs, done!
+
+This manual is for Kubed 0.1.0, a rich Emacs interface for Kubernetes.
+
+@end ifnottex
+
+@menu
+* Overview::                    Introduction to Kubed
+* Getting Started::             First steps with Kubed
+* Usage::                       Using Kubed to interact with Kubernetes
+* Contributing::                Get involved in Kubed development
+* Indices::
+@end menu
+
+@node Overview
+@chapter Overview
+
+@cindex Kubed
+@cindex kubed
+Kubed is a rich Kubernetes interface within Emacs.  It helps you work
+with your Kubernetes clusters and deployments with the full power of
+@command{kubectl}, and with the comfort and confidence of an intuitive
+interactive interface.
+
+You can use Kubed to:
+
+@itemize
+@item
+Browse and manage Kubernetes workloads
+@item
+Connect to pods and edit files or execute commands
+@item
+Create new resources, edit and delete them
+@item
+Get help about various Kubernetes objects
+@item
+@dots{}
+@end itemize
+
+These features and others are documented in the rest of this manual,
+along with many options that Kubed provides for you to customize its
+behavior.
+
+@node Getting Started
+@chapter Getting Started
+
+@cindex installation
+Use your favorite Emacs package manager to install Kubed from Git.  You
+can clone the Kubed Git repository from any of the following locations:
+
+@itemize
+@item
+@url{https://git.sr.ht/~eshel/kubed}
+@url{https://github.com/eshelyaron/kubed.git}
+@url{git://git.eshelyaron.com/kubed.git}
+@end itemize
+
+@cindex requirements
+To get started with Kubed, all you need is @command{kubectl} and Emacs.
+
+@vindex kubed-kubectl-program
+Kubed tries to find @command{kubectl} in the directories listed in the
+Emacs variable @code{exec-path}.  When Emacs is started from a shell, it
+initializes @code{exec-path} from the shell's @env{PATH} environment
+variable which normally includes the location of @command{kubectl} in
+common @command{kubectl} installations.  If Emacs doesn't find the
+@command{kubectl} executable via @code{exec-path}, you can tell Kubed
+where to find it by customizing @code{kubed-kubectl-program}.
+
+@node Usage
+@chapter Usage
+
+This chapter is under construction.
+
+@node Contributing
+@chapter Contributing
+
+We highly appreciate all contributions, including bug reports,
+patches, improvement suggestions, and general feedback!
+
+The best way to get in touch with the Kubed maintainers is via
+@uref{https://lists.sr.ht/~eshel/kubed-devel, the Kubed mailing list}.
+
+@findex kubed-submit-bug-report
+@deffn Command kubed-submit-bug-report
+Report a bug in Kubed to the maintainers via mail.
+@end deffn
+
+You can use the command @kbd{M-x kubed-submit-bug-report} to easily
+contact the Kubed maintainers from within Emacs.  This command opens a
+new buffer with a message template ready to be sent to the development
+mailing list.
+
+@node Indices
+@unnumbered Indices
+
+@menu
+* Function Index::
+* Variable Index::
+* Keystroke Index::
+* Concept Index::
+@end menu
+
+@node Function Index
+@unnumberedsec Function index
+
+@printindex fn
+
+@node Variable Index
+@unnumberedsec Variable index
+
+@printindex vr
+
+@node Keystroke Index
+@unnumberedsec Keystroke index
+
+@printindex ky
+
+@node Concept Index
+@unnumberedsec Concept index
+
+@printindex cp
+
+@bye
