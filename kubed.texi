@@ -100,7 +100,6 @@ can clone the Kubed Git repository from any of the following locations:
 @cindex requirements
 To get started with Kubed, all you need is @command{kubectl} and Emacs.
 
-@vindex kubed-kubectl-program
 Kubed tries to find @command{kubectl} in the directories listed in the
 Emacs variable @code{exec-path}.  When Emacs is started from a shell, it
 initializes @code{exec-path} from the shell's @env{PATH} environment
@@ -109,10 +108,67 @@ common @command{kubectl} installations.  If Emacs doesn't find the
 @command{kubectl} executable via @code{exec-path}, you can tell Kubed
 where to find it by customizing @code{kubed-kubectl-program}.
 
+@defopt kubed-kubectl-program
+Name of @command{kubectl} executable file to use.
+@end defopt
+
 @node Usage
 @chapter Usage
 
-This chapter is under construction.
+Kubed comes with a large number of Emacs command for interacting with
+Kubernetes.  Some commands perform one action on one resource, while
+others show you a menu with many resources and let you interact with any
+number of them.  Some commands are specific to one type of resources,
+while others act on resources of any type.  There are different ways to
+use Kubed, depending on your use case.
+
+The two most important entry points for Kubed are
+@code{kubed-prefix-map} and @code{kubed-transient}:
+
+@cindex global prefix keymap
+@cindex prefix keymap, global commands
+@cindex keymap, for global commands
+@defvr Keymap kubed-prefix-map
+Keymap with bindings for many useful Kubed commands.
+@end defvr
+
+The prefix keymap @code{kubed-prefix-map} gives you quick access to the
+main Kubed commands.  You may want to bind it to a convenient key in
+your global keymap, for example:
+
+@lisp
+(keymap-global-set "C-c k" 'kubed-prefix-map)
+@end lisp
+
+With this binding in place, you can create a new Kubernetes resource
+with @kbd{C-c k +} and attach to a running pod with @kbd{C-c k p a}.
+The @kbd{C-c k} binding is just a suggestion of course, feel free to
+pick any key sequence you like.
+
+The other entry point that Kubed provides for exploring and performing
+different Kubernetes operations is @code{kubed-transient}:
+
+@deffn Command kubed-transient
+Open the main Kubed transient menu.
+@end deffn
+
+This command pops up the Kubed transient menu, which gives you
+interactive guidance for invoking Kubed commands.
+@xref{Top,,,transient}.
+
+The following sections describe in detail the various Kubed commands.
+
+@node Common Commands
+@section Common Commands
+
+@node Browsing Resources
+@section Browsing Resources
+
+@node Transient Menus
+@section Transient Menus
+
+@node Extending Kubed
+@chapter Extending Kubed
 
 @node Contributing
 @chapter Contributing
@@ -123,7 +179,6 @@ patches, improvement suggestions, and general feedback!
 The best way to get in touch with the Kubed maintainers is via
 @uref{https://lists.sr.ht/~eshel/kubed-devel, the Kubed mailing list}.
 
-@findex kubed-submit-bug-report
 @deffn Command kubed-submit-bug-report
 Report a bug in Kubed to the maintainers via mail.
 @end deffn
