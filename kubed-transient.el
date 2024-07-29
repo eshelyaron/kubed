@@ -45,6 +45,7 @@
    ("a" "Attach"  kubed-transient-attach)
    ("d" "Diff"    kubed-transient-diff)
    ("e" "Exec"    kubed-transient-exec)
+   ("P" "Patch"   kubed-transient-patch)
    ("E" "Explain" kubed-explain)
    ("!" "Command line" kubed-kubectl-command)])
 
@@ -134,11 +135,27 @@
    ("-f" "Definition file" "--filename="
     :reader kubed-transient-read-resource-definition-file-name)]
   ["Actions"
-   ("*" "apply" kubed-apply)
+   ("*" "Apply" kubed-apply)
    ("!" "Command line" kubed-kubectl-command)]
   (interactive)
   (transient-setup 'kubed-transient-apply nil nil
                    :scope '("apply")))
+
+;;;###autoload
+(transient-define-prefix kubed-transient-patch ()
+  "Apply patch to Kubernetes resource."
+  ["Options"
+   ("-n" "Namespace" "--namespace="
+    :prompt "Namespace" :reader kubed-transient-read-namespace)
+   ("-t" "Patch type" "--type="
+    :prompt "Patch type: "
+    :choices ("strategic" "merge" "json"))]
+  ["Actions"
+   ("P" "Patch" kubed-patch)
+   ("!" "Command line" kubed-kubectl-command)]
+  (interactive)
+  (transient-setup 'kubed-transient-patch nil nil
+                   :scope '("patch")))
 
 ;;;###autoload
 (transient-define-prefix kubed-transient-create ()

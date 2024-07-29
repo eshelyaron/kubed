@@ -232,17 +232,17 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
 
     ;; Extend `commands' with standard commands.
     ;; Commands appear in reverse order in context menu.
-    (dolist (c `((display "C-o" "Display description of"
+    (dolist (c `((patch "P" "Patch"
+                        (kubed-patch ,(symbol-name plrl-var) ,resource
+                                     (kubed-read-patch)
+                                     . ,(when namespaced '(k8sns))))
+                 (display "C-o" "Display description of"
                           (display-buffer
-                           ,(if namespaced
-                                `(,desc-fun ,resource k8sns)
-                              `(,desc-fun ,resource))))
+                           (,desc-fun ,resource . ,(when namespaced '(k8sns)))))
                  (get-in-other-window
                   "o" "Pop to buffer showing description of"
                   (switch-to-buffer-other-window
-                   ,(if namespaced
-                        `(,desc-fun ,resource k8sns)
-                      `(,desc-fun ,resource))))
+                   (,desc-fun ,resource . ,(when namespaced '(k8sns)))))
                  (delete "D" "Delete"
                          ,(if namespaced
                               `(if k8sns
@@ -270,9 +270,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
                           `(,edt-name ,resource)))
                  (get "RET" "Switch to buffer showing description of"
                       (switch-to-buffer
-                       ,(if namespaced
-                            `(,desc-fun ,resource k8sns)
-                          `(,desc-fun ,resource))))))
+                       (,desc-fun ,resource . ,(when namespaced '(k8sns)))))))
       (push c commands))
 
     ;; Generate code.
@@ -1859,6 +1857,45 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
            (list "--" command)
            args))))
 
+(defvar kubed-patch-history nil
+  "Minibuffer history for `kubed-read-patch'.")
+
+(defun kubed-read-patch ()
+  "Prompt for a Kubernetes resource patch in JSON or YAML format."
+  (read-string "Patch (JSON or YAML): " nil 'kubed-patch-history))
+
+;;;###autoload
+(defun kubed-patch (type name patch &optional namespace strategy)
+  "Patch Kubernetes resource NAME of TYPE with patch PATCH.
+
+Optional argument NAMESPACE is the namespace in which to look for NAME.
+STRATEGY is the patch type to use, one of \"json\", \"merge\" and
+\"strategic\", defaulting to \"strategic\".
+
+Interactively, prompt for TYPE, NAME and PATCH."
+  (interactive
+   (let ((type (kubed-read-resource-type "Resource type to patch"))
+         (namespace nil) (strategy nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-apply))
+       (cond
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--type=\\(.+\\)" arg)
+         (setq strategy (match-string 1 arg)))))
+     (list type
+           (kubed-read-resource-name type "Resource to patch")
+           (kubed-read-patch) namespace strategy)))
+  (message "Applying patch to `%s'..." name)
+  (unless (zerop
+           (apply #'call-process
+                  kubed-kubectl-program nil nil nil
+                  "patch" type name "-p" patch
+                  (append
+                   (when namespace (list "-n" namespace))
+                   (when strategy (list "--type" strategy)))))
+    (user-error "Patching `%s' failed" name))
+  (message "Applying patch to `%s'...  Done." name))
+
 (with-eval-after-load 'help-mode
   ;; Wait for `help-mode' to define `help-xref'.  It's always loaded by
   ;; the time we actually need it in `kubed-explain'.
@@ -2024,6 +2061,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "R" #'kubed-run
   "=" #'kubed-diff
   "E" #'kubed-explain
+  "P" #'kubed-patch
   "!" #'kubed-kubectl-command)
 
 (defvar reporter-prompt-for-summary-p)
