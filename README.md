@@ -7,6 +7,8 @@ interactive interface.
 
 ![Kubed](kubed.png)
 
+![Pod context menu](pod-context-menu.png)
+
 You can use Kubed to:
 
 - Browse and manage Kubernetes workloads
