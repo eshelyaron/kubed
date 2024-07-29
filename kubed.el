@@ -1178,6 +1178,15 @@ optional command to run in the images."
      (ownername ".metadata.ownerReferences[0].name" 16)
      (creationtimestamp ".metadata.creationTimestamp" 20)))
 
+(defun kubed-cronjob-suspended-p (cj &optional ns)
+  "Return non-nil if cronjob CJ in namespace NS is currently suspended."
+  (equal (car (apply #'process-lines
+                     kubed-kubectl-program
+                     "get" "cronjobs" cj
+                     "-o" "custom-columns=SUSPENDED:.spec.suspend" "--no-headers"
+                     (when ns (list "-n" ns))))
+         "true"))
+
 ;;;###autoload (autoload 'kubed-display-cronjob "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-cronjob "kubed" nil t)
 ;;;###autoload (autoload 'kubed-delete-cronjobs "kubed" nil t)
@@ -1229,6 +1238,14 @@ overrides the default command IMAGE runs."
                     (when command (cons "--" command)))))
      (user-error "Failed to create Kubernetes cronjob `%s'" name))
    (message "Created Kubernetes cronjob `%s'." name)
+   (kubed-update-cronjobs t))
+  (toggle-suspension
+   "T" "Toggle suspension of"
+   (kubed-patch "cronjobs" cronjob
+                (format
+                 "{\"spec\": {\"suspend\": %s}}"
+                 (if (kubed-cronjob-suspended-p cronjob k8sns) "false" "true"))
+                k8sns)
    (kubed-update-cronjobs t)))
 
 ;;;###autoload (autoload 'kubed-display-ingressclass "kubed" nil t)
