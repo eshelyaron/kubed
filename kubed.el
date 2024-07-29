@@ -44,7 +44,7 @@
 ;;; Todo:
 
 ;; - Support filtering resource lists.
-;; - Add menu bar and context menus.
+;; - Add menu bar menu.
 
 ;;; Code:
 
@@ -192,7 +192,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         list-var ents-var hook-var proc-var frmt-var read-crm sure-fun
         ents-fun buff-fun frmt-fun affx-fun updt-cmd list-cmd expl-cmd
         mark-cmd umrk-cmd exec-cmd list-buf out-name err-name dlt-errb
-        dlt-name mod-name crt-spec prf-keys)
+        dlt-name mod-name ctxt-fun crt-spec prf-keys)
 
     ;; Process keyword arguments.
     (while (keywordp (car commands))
@@ -227,29 +227,22 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
           err-name         (format " *kubed-get-%S-stderr*" plrl-var)
           dlt-errb         (format " *kubed-%S-execute-stderr*" plrl-var)
           dlt-name (intern (format "kubed-delete-%S"        plrl-var))
-          mod-name (intern (format "kubed-%S-mode"          plrl-var)))
+          mod-name (intern (format "kubed-%S-mode"          plrl-var))
+          ctxt-fun (intern (format "kubed-%S-context-menu"  plrl-var)))
 
     ;; Extend `commands' with standard commands.
-    (dolist (c `((get "RET" "Switch to buffer showing description of"
-                      (switch-to-buffer
-                       ,(if namespaced
-                            `(,desc-fun ,resource k8sns)
-                          `(,desc-fun ,resource))))
+    ;; Commands appear in reverse order in context menu.
+    (dolist (c `((display "C-o" "Display description of"
+                          (display-buffer
+                           ,(if namespaced
+                                `(,desc-fun ,resource k8sns)
+                              `(,desc-fun ,resource))))
                  (get-in-other-window
                   "o" "Pop to buffer showing description of"
                   (switch-to-buffer-other-window
                    ,(if namespaced
                         `(,desc-fun ,resource k8sns)
                       `(,desc-fun ,resource))))
-                 (display "C-o" "Display description of"
-                          (display-buffer
-                           ,(if namespaced
-                                `(,desc-fun ,resource k8sns)
-                              `(,desc-fun ,resource))))
-                 (edit "e" "Edit"
-                       ,(if namespaced
-                            `(,edt-name ,resource k8sns)
-                          `(,edt-name ,resource)))
                  (delete "D" "Delete"
                          ,(if namespaced
                               `(if k8sns
@@ -270,7 +263,16 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
                                                      (symbol-name resource)
                                                      " `%s'?")
                                             ,resource))
-                               (,dlt-name (list ,resource)))))))
+                               (,dlt-name (list ,resource)))))
+                 (edit "e" "Edit"
+                       ,(if namespaced
+                            `(,edt-name ,resource k8sns)
+                          `(,edt-name ,resource)))
+                 (get "RET" "Switch to buffer showing description of"
+                      (switch-to-buffer
+                       ,(if namespaced
+                            `(,desc-fun ,resource k8sns)
+                          `(,desc-fun ,resource))))))
       (push c commands))
 
     ;; Generate code.
@@ -713,16 +715,17 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 
        ,@(mapcar
           (pcase-lambda (`(,suffix ,_key ,desc . ,body))
-            `(defun ,(intern (format "kubed-%S-%S" plrl-var suffix)) ()
+            `(defun ,(intern (format "kubed-%S-%S" plrl-var suffix)) (click)
                ,(format "%s Kubernetes %S at point." desc resource)
-               (interactive "" ,mod-name)
-               (if-let ,(if namespaced
-                            `((k8sent (tabulated-list-get-entry))
-                              (,resource (aref k8sent 0)))
-                          `(,resource (tabulated-list-get-id)))
+               (interactive (list last-nonmenu-event) ,mod-name)
+               (if-let ((pos (mouse-set-point click))
+                        . ,(if namespaced
+                               `((k8sent (tabulated-list-get-entry pos))
+                                 (,resource (aref k8sent 0)))
+                             `((,resource (tabulated-list-get-id pos)))))
                    ,(if namespaced
                         `(let ((k8sns (when kubed-all-namespaces-mode
-                                        (aref (tabulated-list-get-entry) 1))))
+                                        (aref (tabulated-list-get-entry pos) 1))))
                            ,@body)
                       `(progn ,@body))
                  (user-error ,(format "No Kubernetes %S at point" resource)))))
@@ -773,6 +776,17 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                         ,frmt-var)
                     frmt-var))))
 
+       (defun ,ctxt-fun (menu click)
+         (when (tabulated-list-get-entry (posn-point (event-start click)))
+           ,@(mapcar
+              (pcase-lambda (`(,suffix ,_key ,desc . ,_body))
+                `(define-key
+                  menu [,(intern (format "kubed-%S-%S" plrl-var suffix))]
+                  (list 'menu-item ,(format "%s this %S" desc resource)
+                        #',(intern (format "kubed-%S-%S" plrl-var suffix)))))
+              (reverse commands)))
+         menu)
+
        (define-derived-mode ,mod-name tabulated-list-mode
          (list ,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
                (list ',proc-var
@@ -803,6 +817,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          (setq tabulated-list-entries #',ents-fun)
          (setq tabulated-list-padding 2)
          (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow))
+         (add-hook 'context-menu-functions #',ctxt-fun nil t)
          (tabulated-list-init-header))
 
        (defun ,buff-fun (,plrl-var &optional buffer frozen)
