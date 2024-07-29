@@ -425,13 +425,8 @@ of %S, instead of just one." resource plrl-var)
                             '(metadata
                               (category . ,(intern (format "kubernetes-%S" resource))))
                           (when (eq table 'unset)
-                            (setq table
-                                  (process-lines
-                                   kubed-kubectl-program
-                                   "get" ,(format "%S" plrl-var)
-                                   "-o" "custom-columns=NAME:.metadata.name"
-                                   "--no-headers"
-                                   "-n" k8sns)))
+                            (setq table (kubed-resource-names
+                                         ,(symbol-name plrl-var) k8sns)))
                           (complete-with-action a table s p)))))
                `(lambda (s p a)
                   (if (eq a 'metadata)
@@ -1870,6 +1865,42 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
 (defvar kubed-resource-field-history nil
   "Minibuffer history for `kubed-read-resource-field'.")
 
+(defun kubed-api-resources ()
+  "Return list of resource types in the current Kubernetes context."
+  (mapcar
+   (lambda (line)
+     (car (split-string line)))
+   (process-lines
+    kubed-kubectl-program
+    "api-resources" "--no-headers")))
+
+(defun kubed-resource-names (type &optional namespace)
+  "Return list of Kuberenetes resource names of type TYPE in NAMESPACE."
+  (apply #'process-lines
+         kubed-kubectl-program "get" type
+         "-o" "custom-columns=NAME:.metadata.name" "--no-headers"
+         (when namespace (list "-n" namespace))))
+
+(defun kubed-read-resource-name (type prompt &optional default namespace)
+  "Prompt with PROMPT for Kubernetes resource name of type TYPE.
+
+Optional argument DEFAULT is the minibuffer default argument.  Non-nil
+optional argument NAMESPACE says to use names from NAMESPACE as
+completion candidates instead of the current namespace."
+  (completing-read
+   (format-prompt prompt default)
+   (kubed-resource-names type namespace)
+   nil 'confirm nil nil default))
+
+(defun kubed-read-resource-type (prompt &optional default)
+  "Prompt with PROMPT for Kubernetes resource type.
+
+Optional argument DEFAULT is the minibuffer default argument."
+  (completing-read
+   (format-prompt prompt default)
+   (kubed-api-resources)
+   nil 'confirm nil nil default))
+
 (defun kubed-read-resource-field (prompt &optional default)
   "Prompt with PROMPT for Kubernetes resource type or field name.
 
@@ -1887,12 +1918,7 @@ Optional argument DEFAULT is the minibuffer default argument."
            (let ((table
                   (if (zerop start)
                       ;; Complete resource type.
-                      (mapcar
-                       (lambda (line)
-                         (car (split-string line)))
-                       (process-lines
-                        kubed-kubectl-program
-                        "api-resources" "--no-headers"))
+                      (kubed-api-resources)
                     ;; Complete (sub-)field name.
                     (with-temp-buffer
                       (call-process
