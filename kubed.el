@@ -894,6 +894,14 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          "E" #',expl-cmd
          ,@prf-keys))))
 
+(setf
+ ;; Teach Imenu about `kubed-define-resource'.
+ (alist-get "KubedResource" lisp-imenu-generic-expression nil nil #'equal)
+ (list (concat "^\\s-*(kubed-define-resource\\s-+\\("
+               lisp-mode-symbol-regexp
+               "\\)")
+       1))
+
 (defmacro kubed--static-if (condition then-form &rest else-forms)
   "A conditional compilation macro.
 Evaluate CONDITION at macro-expansion time.  If it is non-nil, expand
