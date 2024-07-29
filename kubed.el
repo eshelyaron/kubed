@@ -1930,8 +1930,11 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
           "Command: "
           (concat
            kubed-kubectl-program " "
-           (let ((args (kubed-transient-args))
-                 (scope (and (fboundp 'transient-scope) (transient-scope))))
+           (let* ((args (kubed-transient-args))
+                  (prefix (and (fboundp 'transient-prefix-object)
+                               (transient-prefix-object)))
+                  (scope (and prefix (fboundp 'eieio-oref)
+                              (eieio-oref prefix 'scope))))
              (when (or args scope)
                (concat (string-join (append scope args) " ") " "))))
           'kubed-kubectl-command-history)))
