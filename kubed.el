@@ -290,8 +290,10 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
          ,(format "Populate `%S', if not already populated." list-var)
          (unless (or ,list-var (process-live-p ,proc-var)) (,updt-cmd)))
 
-       (defun ,updt-cmd ()
-         ,(format "Update `%S'." list-var)
+       (defun ,updt-cmd (&optional silent)
+         ,(format "Update `%S'.
+Non-nil optional argument SILENT says to inhibit progress messages."
+                  list-var)
          (interactive)
          (when (process-live-p ,proc-var) (delete-process ,proc-var))
          (with-current-buffer (get-buffer-create ,out-name)
@@ -373,13 +375,15 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
                       (setq ,list-var new
                             ,proc-var nil)
                       (run-hooks ',hook-var)
-                      (message ,(format "Updated Kubernetes %S." plrl-var))))
+                      (unless silent
+                        (message ,(format "Updated Kubernetes %S." plrl-var)))))
                    ((string= status "exited abnormally with code 1\n")
                     (with-current-buffer ,err-name
                       (goto-char (point-max))
                       (insert "\n" status))
                     (display-buffer ,err-name))))))
-         (minibuffer-message ,(format "Updating Kubernetes %S..." plrl-var)))
+         (unless silent
+           (minibuffer-message ,(format "Updating Kubernetes %S..." plrl-var))))
 
        (defun ,affx-fun (,plrl-var)
          ,(format "Return Kubernetes %s with completion affixations."
@@ -668,7 +672,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                                                                               (symbol-name resource)
                                                                               " `%s' in namespace `%s'.")
                                                                      name space))
-                                                    (,updt-cmd))
+                                                    (,updt-cmd t))
                                                    ((string= status "exited abnormally with code 1\n")
                                                     (with-current-buffer ,dlt-errb
                                                       (goto-char (point-max))
@@ -695,7 +699,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                                           (message (format ,(concat "Deleted %d marked Kubernetes "
                                                                     (symbol-name plrl-var) ".")
                                                            (length delete-list)))
-                                          (,updt-cmd))
+                                          (,updt-cmd t))
                                          ((string= status "exited abnormally with code 1\n")
                                           (with-current-buffer ,dlt-errb
                                             (goto-char (point-max))
@@ -721,7 +725,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                                       (message (format ,(concat "Deleted %d marked Kubernetes "
                                                                 (symbol-name plrl-var) ".")
                                                        (length delete-list)))
-                                      (,updt-cmd))
+                                      (,updt-cmd t))
                                      ((string= status "exited abnormally with code 1\n")
                                       (with-current-buffer ,dlt-errb
                                         (goto-char (point-max))
@@ -735,7 +739,8 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                       (symbol-name resource))
              (interactive (list (kubed-read-resource-definition-file-name
                                  ,(symbol-name resource))))
-             (kubed-create definition ,(symbol-name resource))))
+             (kubed-create definition ,(symbol-name resource))
+             (,updt-cmd t)))
 
        ,@(mapcar
           (pcase-lambda (`(,suffix ,_key ,desc . ,body))
@@ -1026,7 +1031,7 @@ Switch to namespace `%s' and proceed?" k8sns))
              "create" "namespace" name))
      (user-error "Failed to create Kubernetes namespace with name `%s'" name))
    (message "Created Kubernetes namespace with name `%s'." name)
-   (kubed-update-namespaces))
+   (kubed-update-namespaces t))
   (set "s" "Set current namespace to"
        (save-excursion
          (goto-char (point-min))
@@ -1143,7 +1148,7 @@ optional command to run in the images."
                     (when command (cons "--" command)))))
      (user-error "Failed to create Kubernetes deployment `%s'" name))
    (message "Created Kubernetes deployment `%s'." name)
-   (kubed-update-deployments)))
+   (kubed-update-deployments t)))
 
 ;;;###autoload (autoload 'kubed-display-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-replicaset "kubed" nil t)
@@ -1226,7 +1231,7 @@ overrides the default command IMAGE runs."
                     (when command (cons "--" command)))))
      (user-error "Failed to create Kubernetes cronjob `%s'" name))
    (message "Created Kubernetes cronjob `%s'." name)
-   (kubed-update-cronjobs)))
+   (kubed-update-cronjobs t)))
 
 ;;;###autoload (autoload 'kubed-display-ingressclass "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-ingressclass "kubed" nil t)
@@ -1293,7 +1298,7 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
                             annotations))))
      (user-error "Failed to create Kubernetes ingress `%s'" name))
    (message "Created Kubernetes ingress `%s'." name)
-   (kubed-update-ingresses)))
+   (kubed-update-ingresses t)))
 
 ;; TODO: Events may be numerous.  Need to only get a few.
 ;; ;;;###autoload (autoload 'kubed-list-events "kubed" nil t)
@@ -1556,7 +1561,7 @@ providing it with arguments."
                      (when args (cons "--" args)))))
       (user-error "Failed to run image `%s'" image))
     (message "Image `%s' is now running in pod `%s'." image pod))
-  (kubed-update-pods))
+  (kubed-update-pods t))
 
 (defun kubed-pod-containers (pod &optional k8sns)
   "Return list of containers in Kubernetes pod POD in namespace K8SNS."
