@@ -450,29 +450,29 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
              (setq-local revert-buffer-function fun))
            buf))
 
-       ,(when namespaced
-          `(defun ,read-nms (prompt &optional default multi)
-             (let* ((choice
-                     (funcall
-                      (if multi #'completing-read-multiple #'completing-read)
-                      (format-prompt prompt default)
-                      (lambda (s p a)
-                        (if (eq a 'metadata)
-                            '(metadata
-                              (category
-                               . ,(intern (format "kubernetes-namespaced-%S" resource))))
-                          (while (and (process-live-p ,proc-var)
-                                      (null ,list-var))
-                            (accept-process-output ,proc-var 1))
-                          (complete-with-action a (mapcar (pcase-lambda (`(,name ,space . ,_))
-                                                            (concat name " " space))
-                                                          ,list-var)
-                                                s p)))
-                      nil 'confirm nil ',hist-var default))
-                    (split (mapcar (lambda (c)
-                                     (split-string c " "))
-                                   (ensure-list choice))))
-               (if multi split (car split)))))
+       ,@(when namespaced
+           `((defun ,read-nms (prompt &optional default multi)
+               (let* ((choice
+                       (funcall
+                        (if multi #'completing-read-multiple #'completing-read)
+                        (format-prompt prompt default)
+                        (lambda (s p a)
+                          (if (eq a 'metadata)
+                              '(metadata
+                                (category
+                                 . ,(intern (format "kubernetes-namespaced-%S" resource))))
+                            (while (and (process-live-p ,proc-var)
+                                        (null ,list-var))
+                              (accept-process-output ,proc-var 1))
+                            (complete-with-action a (mapcar (pcase-lambda (`(,name ,space . ,_))
+                                                              (concat name " " space))
+                                                            ,list-var)
+                                                  s p)))
+                        nil 'confirm nil ',hist-var default))
+                      (split (mapcar (lambda (c)
+                                       (split-string c " "))
+                                     (ensure-list choice))))
+                 (if multi split (car split))))))
 
        (defun ,dsp-name (,resource . ,(when namespaced '(&optional k8sns)))
          ,(format "Display Kubernetes %S %s."
@@ -486,11 +486,11 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 
        (add-hook 'kubed-update-hook #',updt-cmd)
 
-       ,(when namespaced
-          `(add-hook 'kubed-all-namespaces-mode-hook
-                     (lambda ()
-                       (setq ,list-var nil)
-                       (,updt-cmd))))
+       ,@(when namespaced
+           `((add-hook 'kubed-all-namespaces-mode-hook
+                       (lambda ()
+                         (setq ,list-var nil)
+                         (,updt-cmd)))))
 
        (defun ,edt-name (,resource . ,(when namespaced '(&optional k8sns)))
          ,(format "Edit Kubernetes %S %s."
