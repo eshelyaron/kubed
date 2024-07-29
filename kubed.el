@@ -392,7 +392,8 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
                                                'face 'completions-annotations))))
                    ,plrl-var)))
 
-       (defun ,read-fun (prompt &optional default multi)
+       (defun ,read-fun (prompt &optional default multi
+                                . ,(when namespaced '(k8sns)))
          ,(format "Prompt with PROMPT for a Kubernetes %S name.
 
 Optional argument DEFAULT is the minibuffer default argument.
@@ -404,16 +405,44 @@ of %S, instead of just one." resource plrl-var)
            (funcall
             (if multi #'completing-read-multiple #'completing-read)
             (format-prompt prompt default)
-            (lambda (s p a)
-              (if (eq a 'metadata)
-                  '(metadata
-                    (category . ,(intern (format "kubernetes-%S" resource)))
-                    ,@(when properties
-                        `((affixation-function . ,affx-fun))))
-                (while (and (process-live-p ,proc-var)
-                            (null ,list-var))
-                  (accept-process-output ,proc-var 1))
-                (complete-with-action a ,list-var s p)))
+            ,(if namespaced
+                 `(if (or (null k8sns) (string= k8sns (kubed-current-namespace)))
+                      ;; Current namespace.
+                      (lambda (s p a)
+                        (if (eq a 'metadata)
+                            '(metadata
+                              (category . ,(intern (format "kubernetes-%S" resource)))
+                              ,@(when properties
+                                  `((affixation-function . ,affx-fun))))
+                          (while (and (process-live-p ,proc-var)
+                                      (null ,list-var))
+                            (accept-process-output ,proc-var 1))
+                          (complete-with-action a ,list-var s p)))
+                    ;; Different namespace.
+                    (let ((table 'unset))
+                      (lambda (s p a)
+                        (if (eq a 'metadata)
+                            '(metadata
+                              (category . ,(intern (format "kubernetes-%S" resource))))
+                          (when (eq table 'unset)
+                            (setq table
+                                  (process-lines
+                                   kubed-kubectl-program
+                                   "get" ,(format "%S" plrl-var)
+                                   "-o" "custom-columns=NAME:.metadata.name"
+                                   "--no-headers"
+                                   "-n" k8sns)))
+                          (complete-with-action a table s p)))))
+               `(lambda (s p a)
+                  (if (eq a 'metadata)
+                      '(metadata
+                        (category . ,(intern (format "kubernetes-%S" resource)))
+                        ,@(when properties
+                            `((affixation-function . ,affx-fun))))
+                    (while (and (process-live-p ,proc-var)
+                                (null ,list-var))
+                      (accept-process-output ,proc-var 1))
+                    (complete-with-action a ,list-var s p))))
             nil 'confirm nil ',hist-var default)) )
 
        (defun ,read-crm (prompt &optional default)
@@ -1723,9 +1752,7 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
                 (p (car p-s))
                 (s (cadr p-s)))
            (list p (kubed-read-container p "Container" t s) s stdin tty))
-       ;; FIXME: When namespace is set from transient prefix, read pod
-       ;; name in that namespace instead.
-       (let* ((p (kubed-read-pod "Attach to pod"))
+       (let* ((p (kubed-read-pod "Attach to pod" nil nil namespace))
               (c (kubed-read-container p "Container" t namespace)))
          (list p c namespace stdin tty)))))
   (pop-to-buffer
@@ -1805,9 +1832,7 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
                    command (car args)
                    args    (cdr args)))
            (list p command c s stdin tty args))
-       ;; FIXME: Similarly to `kubed-attach', when namespace is set from
-       ;; transient prefix, read pod name in that namespace instead.
-       (let* ((p (kubed-read-pod "Execute command in pod"))
+       (let* ((p (kubed-read-pod "Execute command in pod" nil nil namespace))
               (c (kubed-read-container p "Container" t namespace)))
          (unless command
            (setq args    (split-string-and-unquote
