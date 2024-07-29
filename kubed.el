@@ -1909,7 +1909,7 @@ Optional argument DEFAULT is the minibuffer default argument."
                ;; `try-completion'.
                (let ((comp (complete-with-action a table (substring s start) p)))
                  (if (stringp comp) (concat (substring s 0 start) comp) comp))))))))
-   nil 'confirm nil 'kubed-resource-field-history))
+   nil 'confirm nil 'kubed-resource-field-history default))
 
 ;;;###autoload
 (defun kubed-explain (field)
