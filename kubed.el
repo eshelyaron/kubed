@@ -534,7 +534,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          (unless (bound-and-true-p server-process) (server-start))
          (let ((process-environment
                 (cons ,(if (<= 30 emacs-major-version)
-                           '(concat "KUBE_EDITOR=" 'emacsclient-program-name)
+                           '(concat "KUBE_EDITOR=" emacsclient-program-name)
                          "KUBE_EDITOR=emacsclient")
                       process-environment)))
            (start-process ,(format "*kubed-%S-edit*" plrl-var) nil
