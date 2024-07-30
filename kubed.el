@@ -105,16 +105,16 @@ RESOURCE is a symbol corresponding to a Kubernetes resource type, such
 as `pod' or `service'.  This macro defines the following commands for
 interacting with Kubernetes RESOURCEs:
 
-- `kubed-display-RESROURCE': prompt for a RESOURCE and display its
+- `kubed-display-RESOURCE': prompt for a RESOURCE and display its
   description in YAML format.  See also `kubed-yaml-setup-hook'.
-- `kubed-edit-RESROURCE': prompt for a RESOURCE and edit it.
-- `kubed-delete-RESROURCE': prompt for a RESOURCE and delete it.
-- `kubed-list-RESROURCEs': display a buffer listing all RESOURCEs in the
+- `kubed-edit-RESOURCE': prompt for a RESOURCE and edit it.
+- `kubed-delete-RESOURCE': prompt for a RESOURCE and delete it.
+- `kubed-list-RESOURCEs': display a buffer listing all RESOURCEs in the
   current namespace.  The RESOURCEs list buffer uses a dedicated major
   mode, `kubed-RESOURCEs-mode', which is also defined by this macro.
-- `kubed-update-RESROURCEs': update and repopulate RESOURCEs list.
-- `kubed-create-RESROURCE': create a RESOURCE from a YAML or a JSON file.
-- `kubed-explain-RESROURCEs': show buffer with help about RESOURCEs.
+- `kubed-update-RESOURCEs': update and repopulate RESOURCEs list.
+- `kubed-create-RESOURCE': create a RESOURCE from a YAML or a JSON file.
+- `kubed-explain-RESOURCEs': show buffer with help about RESOURCEs.
 
 This macro also defines a prefix keymap, `kubed-RESOURCE-prefix-map',
 with bindings for the above commands.
@@ -168,7 +168,7 @@ namespaceless resource type, put `:namespaced nil' before COMMANDS:
 Other keyword arguments that go between PROPERTIES and COMMANDS are:
 
 - `:create (ARGLIST DOCSTRING INTERACTIVE BODY...)': specialize the
-  resource creation command, `kubed-create-RESROURCE'.  ARGLIST,
+  resource creation command, `kubed-create-RESOURCE'.  ARGLIST,
   DOCSTRING, INTERACTIVE and BODY have the same meaning as in `defun'.
 - `:prefix ((KEY LABEL DEFINITION) ...)': additional keybinding for the
   prefix keymap `kubed-RESOURCE-prefix-map' and the
