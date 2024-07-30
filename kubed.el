@@ -1194,6 +1194,7 @@ If NAMESPACE is nil or omitted, it defaults to the current namespace."
            nil                          ; formatting function
            :right-align t)
      (creationtimestamp ".metadata.creationTimestamp" 20))
+  :prefix (("R" "Restart" kubed-restart-deployment))
   :create
   ((name images &optional namespace replicas port command)
    "Deploy IMAGES to Kubernetes in deployment with name NAME.
