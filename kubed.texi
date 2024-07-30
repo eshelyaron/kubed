@@ -145,8 +145,16 @@ with @kbd{C-c k +} and attach to a running pod with @kbd{C-c k p a}.
 The @kbd{C-c k} binding is just a suggestion of course, feel free to
 pick any key sequence you like.
 
-The other entry point that Kubed provides for exploring and performing
-different Kubernetes operations is @code{kubed-transient}:
+You can also access all of the commands in @code{kubed-prefix-map} via
+the menu-bar @samp{Kubernetes} menu---to add this menu to your
+menu-bar, enable the global minor mode @code{kubed-menu-bar-mode}:
+
+@deffn {Minor Mode} kubed-menu-bar-mode
+Add @samp{Kubernetes} menu to your menu bar.
+@end deffn
+
+The other important entry point that Kubed provides for exploring and
+performing different Kubernetes operations is @code{kubed-transient}:
 
 @deffn Command kubed-transient
 Open the main Kubed transient menu.
