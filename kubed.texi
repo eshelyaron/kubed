@@ -48,6 +48,7 @@ This manual is for Kubed 0.1.0, a rich Emacs interface for Kubernetes.
 * Overview::                    Introduction to Kubed
 * Getting Started::             First steps with Kubed
 * Usage::                       Using Kubed to interact with Kubernetes
+* Extending Kubed::             Adding support for your custom resources
 * Contributing::                Get involved in Kubed development
 * Indices::
 @end menu
@@ -166,6 +167,12 @@ interactive guidance for invoking Kubed commands.
 
 The following sections describe in detail the various Kubed commands.
 
+@menu
+* Common Commands::
+* Browsing Resources::
+* Transient Menus::
+@end menu
+
 @node Common Commands
 @section Common Commands
 
@@ -177,6 +184,52 @@ The following sections describe in detail the various Kubed commands.
 
 @node Extending Kubed
 @chapter Extending Kubed
+
+Kubed has built-in support for many common types of Kubernetes
+resources.  ``Support'' for a resource type in Kubed just means
+providing common commands for working with resources of that type,
+such as a command for showing the interactive list of these resources,
+like @code{kubed-list-pods} for Kubernetes pods.  In Kubed, the macro
+@code{kubed-define-resource} is used to define these common commands
+and add support for more resource types:
+
+@deffn Macro kubed-define-resource resource &optional properties &rest [ keyword argument ]@dots{} commands
+Define commands for @var{resource}.
+@end deffn
+
+Say you want to add support for your Kubernetes service accounts.
+With @code{kubed-define-resource}, all you need to do is to add the
+following line to your Emacs initialization file:
+
+@lisp
+(kubed-define-resource serviceaccount)
+@end lisp
+
+This line defines the following commands for you:
+
+@itemize
+@item
+@code{kubed-display-serviceaccount}
+@item
+@code{kubed-list-serviceaccounts}
+@item
+@code{kubed-edit-serviceaccount}
+@item
+@code{kubed-delete-serviceaccount}
+@item
+@code{kubed-create-serviceaccount}
+@item
+@code{kubed-update-serviceaccounts}
+@item
+@code{kubed-explain-serviceaccounts}
+@end itemize
+
+See the documentation string of @code{kubed-define-resource}
+(@w{@kbd{C-h f}}) for details about the optional arguments of this
+macro: the @var{properties} argument which lets you specify what Kubed
+should show in the resource list buffer (for example,
+@file{*kubed-serviceaccounts*}) and the @code{commands} argument which
+lets you associate additional commands with your resource type.
 
 @node Contributing
 @chapter Contributing
