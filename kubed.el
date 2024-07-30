@@ -44,7 +44,6 @@
 ;;; Todo:
 
 ;; - Support filtering resource lists.
-;; - Add menu bar menu.
 
 ;;; Code:
 
@@ -171,8 +170,11 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
 - `:create (ARGLIST DOCSTRING INTERACTIVE BODY...)': specialize the
   resource creation command, `kubed-create-RESROURCE'.  ARGLIST,
   DOCSTRING, INTERACTIVE and BODY have the same meaning as in `defun'.
-- `:prefix (KEY DEFINITION...)': additional keybinding for the prefix
-  keymap `kubed-RESOURCE-prefix-map'.
+- `:prefix ((KEY LABEL DEFINITION) ...)': additional keybinding for the
+  prefix keymap `kubed-RESOURCE-prefix-map' and the
+  `kubed-RESOURCE-menu-map' menu.  Each element (KEY LABEL DEFINITION)
+  says to bind KEY to DEFINITION in `kubed-RESOURCE-menu-map', and to
+  add DEFINITION to `kubed-RESOURCE-menu-map' with the label LABEL.
 - `:plural PLURAL': specify plural form of RESOURCE, as a symbol.  If
   you omit this keyword argument, the plural form defaults to RESOURCE
   followed by \"s\"."
@@ -187,6 +189,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         (edt-name (intern (format "kubed-edit-%S"               resource)))
         (crt-name (intern (format "kubed-create-%S"             resource)))
         (map-name (intern (format "kubed-%S-prefix-map"         resource)))
+        (menu-map (intern (format "kubed-%S-menu-map"           resource)))
         (namespaced t)
         (keyword nil)
         list-var ents-var hook-var proc-var frmt-var read-crm sure-fun
@@ -880,8 +883,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          (kubed-explain ,(symbol-name plrl-var)))
 
        (defvar-keymap ,map-name
-         :doc ,(format "Prefix keymap for Kubed %s commands."
-                       (symbol-name resource))
+         :doc ,(format "Prefix keymap for Kubed %S commands." resource)
          :prefix ',map-name
          "l" #',list-cmd
          "c" #',crt-name
@@ -890,7 +892,25 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          "g" #',dsp-name
          "u" #',updt-cmd
          "E" #',expl-cmd
-         ,@prf-keys))))
+         ,@(mapcan
+            (pcase-lambda (`(,key ,_label ,cmd))
+              (list key `#',cmd))
+            prf-keys))
+
+       (defvar-keymap ,menu-map
+         :doc ,(format "Keymap with Kubernetes %S related menu entries." resource)
+         :prefix ',menu-map
+         "<list>"    '("List"           . ,list-cmd)
+         "<create>"  '("Create"         . ,crt-name)
+         "<edit>"    '("Edit"           . ,edt-name)
+         "<delete>"  '("Delete"         . ,dlt-name)
+         "<display>" '("Display"        . ,dsp-name)
+         "<update>"  '("Update"         . ,updt-cmd)
+         "<explain>" '("Explain Fields" . ,expl-cmd)
+         ,@(mapcan
+            (pcase-lambda (`(,key ,label ,cmd))
+              (list key `'(,label . ,cmd)))
+            prf-keys)))))
 
 (setf
  ;; Teach Imenu about `kubed-define-resource'.
@@ -945,10 +965,10 @@ compatibility with earlier Emacs versions."
                 (number-to-string (1+ (seq-count (lambda (c) (= c ?,)) cs)))))
             :right-align t)
      (starttime ".status.startTime" 20))
-  :prefix ("L" #'kubed-logs
-           "A" #'kubed-attach
-           "X" #'kubed-exec
-           "F" #'kubed-forward-port-to-pod)
+  :prefix (("L" "Show Logs"    kubed-logs)
+           ("A" "Attach"       kubed-attach)
+           ("X" "Execute"      kubed-exec)
+           ("F" "Forward Port" kubed-forward-port-to-pod))
   (dired "C-d" "Start Dired in home directory of first container of"
          ;; Explicit namespace in Kuberenetes remote file names
          ;; introduced in Emacs 31.  See Bug#59797.
@@ -1019,7 +1039,7 @@ Switch to namespace `%s' and proceed?" k8sns))
                 ph)))
      (creationtimestamp ".metadata.creationTimestamp" 20))
   :namespaced nil
-  :prefix ("S" #'kubed-set-namespace)
+  :prefix (("S" "Set" kubed-set-namespace))
   :create
   ((name) "Create Kubernetes namespace with name NAME."
    (interactive (list (read-string "Create namespace with name: ")))
@@ -2080,6 +2100,41 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "E" #'kubed-explain
   "P" #'kubed-patch
   "!" #'kubed-kubectl-command)
+
+(defvar-keymap kubed-menu-map
+  :doc "Keymap with Kubed menu entries."
+  :prefix 'kubed-menu-map
+  "<namespace>"        '("Namespaces..."         . kubed-namespace-menu-map)
+  "<pod>"              '("Pods..."               . kubed-pod-menu-map)
+  "<persistentvolume>" '("Persistent Volumes..." . kubed-persistentvolume-menu-map)
+  "<service>"          '("Services..."           . kubed-service-menu-map)
+  "<secret>"           '("Secrets..."            . kubed-secret-menu-map)
+  "<job>"              '("Jobs..."               . kubed-job-menu-map)
+  "<deployment>"       '("Deployments..."        . kubed-deployment-menu-map)
+  "<replicaset>"       '("Replica Sets..."       . kubed-replicaset-menu-map)
+  "<statefulset>"      '("Stateful Sets..."      . kubed-statefulset-menu-map)
+  "<cronjob>"          '("Cron Jobs..."          . kubed-cronjob-menu-map)
+  "<ingressclass>"     '("Ingress Classes..."    . kubed-ingressclass-menu-map)
+  "<ingress>"          '("Ingresses..."          . kubed-ingress-menu-map)
+  "<patch>"            '("Patch Resource"        . kubed-patch)
+  "<diff>"             '("Diff Config with Live" . kubed-diff)
+  "<kubectl-command>"  '("Invoke kubectl"        . kubed-kubectl-command)
+  "<all-namespaces>"   '("Toggle Namespacing"    . kubed-all-namespaces-mode)
+  "<update-all>"       '("Update Resource Lists" . kubed-update-all)
+  "<explain>"          '("Explain Type or Field" . kubed-explain)
+  "<use-context>"      '("Set Current Context"   . kubed-use-context)
+  "<run>"              '("Run Image"             . kubed-run)
+  "<apply>"            '("Apply Config"          . kubed-apply)
+  "<create>"           '("Create Resource"       . kubed-create))
+
+;;;###autoload
+(define-minor-mode kubed-menu-bar-mode
+  "Add \"Kubernetes\" menu to your menu bar."
+  :global t
+  (if kubed-menu-bar-mode
+      (keymap-set-after (current-global-map)
+        "<menu-bar> <kubed>" '("Kubernetes" . kubed-menu-map))
+    (keymap-global-unset "<menu-bar> <kubed>")))
 
 (defvar reporter-prompt-for-summary-p)
 
