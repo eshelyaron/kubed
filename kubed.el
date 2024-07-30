@@ -1156,6 +1156,20 @@ defaulting to the current namespace."
    (message "Created Kubernetes job `%s'." name)
    (kubed-update-jobs t)))
 
+;;;###autoload
+(defun kubed-restart-deployment (dep &optional namespace)
+  "Restart Kubernetes deployment DEP in namespace NAMESPACE.
+If NAMESPACE is nil or omitted, it defaults to the current namespace."
+  (interactive
+   (list (kubed-read-deployment "Restart deployment")))
+  (unless (zerop
+           (apply #'call-process
+                  kubed-kubectl-program nil nil nil
+                  "rollout" "restart" "deployment" dep
+                  (when namespace (list "-n" namespace))))
+    (user-error "Failed to restart Kubernetes deployment `%s'" dep))
+  (message "Restarted Kubernetes deployment `%s'." dep))
+
 ;;;###autoload (autoload 'kubed-display-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-delete-deployments "kubed" nil t)
@@ -1222,7 +1236,10 @@ optional command to run in the images."
                     (when command (cons "--" command)))))
      (user-error "Failed to create Kubernetes deployment `%s'" name))
    (message "Created Kubernetes deployment `%s'." name)
-   (kubed-update-deployments t)))
+   (kubed-update-deployments t))
+  (set "R" "Restart"
+       (kubed-restart-deployment deployment k8sns)
+       (kubed-update-deployments t)))
 
 ;;;###autoload (autoload 'kubed-display-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-replicaset "kubed" nil t)
