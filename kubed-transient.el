@@ -167,6 +167,7 @@
    ("d" "deployment" kubed-transient-create-deployment)
    ("n" "namespace" kubed-create-namespace)
    ("c" "cronjob" kubed-transient-create-cronjob)
+   ("j" "job" kubed-transient-create-job)
    ("i" "ingress" kubed-transient-create-ingress)]
   ["Actions"
    ("+" "Create" kubed-create)
@@ -238,6 +239,24 @@
   (interactive)
   (transient-setup 'kubed-transient-create-deployment nil nil
                    :scope '("create" "deployment")))
+
+;;;###autoload
+(transient-define-prefix kubed-transient-create-job ()
+  "Create Kubernetes job."
+  ["Options"
+   ("-n" "Namespace" "--namespace="
+    :prompt "Namespace" :reader kubed-transient-read-namespace)
+   ("-I" "Image" "--image="
+    :prompt "Image to run: ")
+   ("--" "Command" "-- ="
+    :prompt "Command: ")]
+  ["Actions"
+   ("+" "Create" kubed-create-job)
+   ("c" "Create from cronjob" kubed-create-job-from-cronjob)
+   ("!" "Command line" kubed-kubectl-command)]
+  (interactive)
+  (transient-setup 'kubed-transient-create-job nil nil
+                   :scope '("create" "job")))
 
 (provide 'kubed-transient)
 ;;; kubed-transient.el ends here

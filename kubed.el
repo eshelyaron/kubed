@@ -886,7 +886,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          :doc ,(format "Prefix keymap for Kubed %S commands." resource)
          :prefix ',map-name
          "l" #',list-cmd
-         "c" #',crt-name
+         "+" #',crt-name
          "e" #',edt-name
          "d" #',dlt-name
          "g" #',dsp-name
@@ -1091,6 +1091,31 @@ Switch to namespace `%s' and proceed?" k8sns))
 (kubed-define-resource secret
     ((type ".type" 32) (creationtimestamp ".metadata.creationTimestamp" 20)))
 
+(defun kubed-create-job-from-cronjob (name cronjob &optional namespace)
+  "Create Kubernetes job with name NAME from cronjob CRONJOB.
+
+Optional argument NAMESPACE is the namespace to use for the job,
+defaulting to the current namespace."
+  (interactive
+   (let ((name (read-string "Create job with name: "))
+         (namespace (seq-some
+                     (lambda (arg)
+                       (when (string-match "--namespace=\\(.+\\)" arg)
+                         (match-string 1 arg)))
+                     (kubed-transient-args 'kubed-transient-create-job))))
+     (list name
+           (kubed-read-cronjob
+            (format "Create job `%s' from cronjob" name) nil nil namespace)
+           namespace)))
+  (unless (zerop
+           (apply #'call-process
+                  kubed-kubectl-program nil nil nil
+                  "create" "job" name "--from" (concat "cronjob/" cronjob)
+                  (when namespace (list "-n" namespace))))
+    (user-error "Failed to create Kubernetes job `%s'" name))
+  (message "Created Kubernetes job `%s'." name)
+  (kubed-update-jobs t))
+
 ;;;###autoload (autoload 'kubed-display-job "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-job "kubed" nil t)
 ;;;###autoload (autoload 'kubed-delete-jobs "kubed" nil t)
@@ -1098,7 +1123,38 @@ Switch to namespace `%s' and proceed?" k8sns))
 ;;;###autoload (autoload 'kubed-create-job "kubed" nil t)
 ;;;###autoload (autoload 'kubed-job-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource job
-    ((status ".status.conditions[0].type" 10) (starttime ".status.startTime" 20)))
+    ((status ".status.conditions[0].type" 10) (starttime ".status.startTime" 20))
+  :prefix (("c" "Create from Cron" kubed-create-job-from-cronjob))
+  :create
+  ((name image &optional namespace command)
+   "Create Kubernetes job with name NAME executing COMMAND in IMAGE.
+
+Optional argument NAMESPACE is the namespace to use for the job,
+defaulting to the current namespace."
+   (interactive
+    (let ((name (read-string "Create job with name: "))
+          (image nil) (namespace nil) (command nil))
+      (dolist (arg (kubed-transient-args 'kubed-transient-create-job))
+        (cond
+         ((string-match "--image=\\(.+\\)" arg)
+          (setq image (match-string 1 arg)))
+         ((string-match "--namespace=\\(.+\\)" arg)
+          (setq namespace (match-string 1 arg)))
+         ((string-match "-- =\\(.+\\)" arg)
+          (setq command (split-string-and-unquote (match-string 1 arg))))))
+      (unless image
+        (setq image (kubed-read-container-image "Image to run in job")))
+      (list name image namespace command)))
+   (unless (zerop
+            (apply #'call-process
+                   kubed-kubectl-program nil nil nil
+                   "create" "job" name "--image" image
+                   (append
+                    (when namespace (list "-n" namespace))
+                    (when command (cons "--" command)))))
+     (user-error "Failed to create Kubernetes job `%s'" name))
+   (message "Created Kubernetes job `%s'." name)
+   (kubed-update-jobs t)))
 
 ;;;###autoload (autoload 'kubed-display-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-deployment "kubed" nil t)
@@ -1152,7 +1208,7 @@ optional command to run in the images."
          ((string-match "-- =\\(.+\\)" arg)
           (setq command (split-string-and-unquote (match-string 1 arg))))))
       (unless images
-        (setq images (kubed-read-container-images "Images to deploy")))
+        (setq images (kubed-read-container-image "Images to deploy" nil t)))
       (list name images namespace replicas port command)))
    (unless (zerop
             (apply #'call-process
@@ -1244,7 +1300,7 @@ overrides the default command IMAGE runs."
          ((string-match "-- =\\(.+\\)" arg)
           (setq command (split-string-and-unquote (match-string 1 arg))))))
       (unless image
-        (setq image (read-string "Image to run: " nil 'kubed-container-images-history)))
+        (setq image (kubed-read-container-image "Image to run")))
       (unless schedule
         (setq schedule (read-string "Cron schedule: " "* * * * *")))
       (list name image schedule namespace command)))
@@ -1259,14 +1315,19 @@ overrides the default command IMAGE runs."
      (user-error "Failed to create Kubernetes cronjob `%s'" name))
    (message "Created Kubernetes cronjob `%s'." name)
    (kubed-update-cronjobs t))
-  (toggle-suspension
-   "T" "Toggle suspension of"
-   (kubed-patch "cronjobs" cronjob
-                (format
-                 "{\"spec\": {\"suspend\": %s}}"
-                 (if (kubed-cronjob-suspended-p cronjob k8sns) "false" "true"))
-                k8sns)
-   (kubed-update-cronjobs t)))
+  ;; Commands in *kubed-cronjobs* buffer.
+  ( toggle-suspension "T" "Toggle suspension of"
+    (kubed-patch "cronjobs" cronjob
+                 (format
+                  "{\"spec\": {\"suspend\": %s}}"
+                  (if (kubed-cronjob-suspended-p cronjob k8sns) "false" "true"))
+                 k8sns)
+    (kubed-update-cronjobs t))
+  ( create-job "j" "Create job from"
+    (kubed-create-job-from-cronjob
+     (read-string "Create job with name: ") cronjob k8sns)
+    (kubed-update-jobs t)
+    (kubed-update-cronjobs t)))
 
 ;;;###autoload (autoload 'kubed-display-ingressclass "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-ingressclass "kubed" nil t)
@@ -1562,7 +1623,7 @@ providing it with arguments."
         ((string-match "-- =\\(.+\\)" arg)
          (setq args (split-string-and-unquote (match-string 1 arg))))))
      (unless image
-       (setq image (read-string "Image to run: " nil 'kubed-container-images-history)))
+       (setq image (read-string "Image to run: " nil 'kubed-container-image-history)))
      (list pod image namespace port attach stdin tty rm envs command args)))
   (if attach
       (pop-to-buffer
@@ -1732,16 +1793,18 @@ one port-forwarding process, stop that process without prompting."
     (error "No port-forwarding for %s" descriptor))
   (message "Stopped port-forwarding for %s" descriptor))
 
-(defvar kubed-container-images-history nil
-  "Minibuffer history for `kubed-read-container-images'.")
+(defvar kubed-container-image-history nil
+  "Minibuffer history for `kubed-read-container-image'.")
 
-(defun kubed-read-container-images (prompt &optional default)
+(defun kubed-read-container-image (prompt &optional default multi)
   "Prompt with PROMPT for names of container images.
 
-Optional argument DEFAULT is the minibuffer default argument."
-  (completing-read-multiple
-   (format-prompt prompt default) nil nil nil nil
-   'kubed-container-images-history default))
+Optional argument DEFAULT is the minibuffer default argument.  Non-nil
+optional argument MULTI says to read multiple image names and return
+them as list."
+  (funcall (if multi #'completing-read-multiple #'completing-read)
+           (format-prompt prompt default) nil nil nil nil
+           'kubed-container-images-history default))
 
 (defvar kubed-ingress-rule-history nil
   "Minibuffer history for `kubed-read-ingress-rules'.")
