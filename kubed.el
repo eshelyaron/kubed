@@ -1238,9 +1238,10 @@ optional command to run in the images."
      (user-error "Failed to create Kubernetes deployment `%s'" name))
    (message "Created Kubernetes deployment `%s'." name)
    (kubed-update-deployments t))
-  (set "R" "Restart"
-       (kubed-restart-deployment deployment k8sns)
-       (kubed-update-deployments t)))
+  (restart "R" "Restart"
+           (kubed-restart-deployment deployment k8sns)
+           (unless kubed-restart-deployment-watch-status
+             (kubed-update-deployments t))))
 
 ;;;###autoload (autoload 'kubed-display-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-replicaset "kubed" nil t)
