@@ -46,8 +46,23 @@
    ("d" "Diff"    kubed-transient-diff)
    ("e" "Exec"    kubed-transient-exec)
    ("P" "Patch"   kubed-transient-patch)
+   ("R" "Rollout" kubed-transient-rollout)
    ("E" "Explain" kubed-explain)
    ("!" "Command line" kubed-kubectl-command)])
+
+;;;###autoload
+(transient-define-prefix kubed-transient-rollout ()
+  "Manage Kubernetes deployments."
+  ["Options"
+   ("-n" "Namespace" "--namespace="
+    :prompt "Namespace" :reader kubed-transient-read-namespace)]
+  ["Actions"
+   ("W" "Watch"   kubed-watch-deployment-status)
+   ("R" "Restart" kubed-restart-deployment)
+   ("!" "Command line" kubed-kubectl-command)]
+  (interactive)
+  (transient-setup 'kubed-transient-rollout nil nil
+                   :scope '("rollout")))
 
 ;;;###autoload
 (transient-define-prefix kubed-transient-attach ()

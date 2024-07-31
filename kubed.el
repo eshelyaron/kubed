@@ -1163,7 +1163,13 @@ defaulting to the current namespace."
 Optional argument NAMESPACE is the namespace of DEP, defaulting to the
 current namespace."
   (interactive
-   (list (kubed-read-deployment "Watch deployment status")))
+   (let ((namespace (seq-some
+                     (lambda (arg)
+                       (when (string-match "--namespace=\\(.+\\)" arg)
+                         (match-string 1 arg)))
+                     (kubed-transient-args 'kubed-transient-rollout))))
+     (list (kubed-read-deployment "Watch deployment status" nil nil namespace)
+           namespace)))
   (let ((buf (get-buffer-create "*kubed-deployment-status*")))
     (with-current-buffer buf (erase-buffer))
     (make-process
@@ -1187,7 +1193,13 @@ current namespace."
   "Restart Kubernetes deployment DEP in namespace NAMESPACE.
 If NAMESPACE is nil or omitted, it defaults to the current namespace."
   (interactive
-   (list (kubed-read-deployment "Restart deployment")))
+   (let ((namespace (seq-some
+                     (lambda (arg)
+                       (when (string-match "--namespace=\\(.+\\)" arg)
+                         (match-string 1 arg)))
+                     (kubed-transient-args 'kubed-transient-rollout))))
+     (list (kubed-read-deployment "Restart deployment" nil nil namespace)
+           namespace)))
   (unless (zerop
            (apply #'call-process
                   kubed-kubectl-program nil nil nil
