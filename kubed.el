@@ -1157,6 +1157,32 @@ defaulting to the current namespace."
    (kubed-update-jobs t)))
 
 ;;;###autoload
+(defun kubed-watch-deployment-status (dep &optional namespace)
+  "Show and update status of Kubernetes deployment DEP in a dedicate buffer.
+
+Optional argument NAMESPACE is the namespace of DEP, defaulting to the
+current namespace."
+  (interactive
+   (list (kubed-read-deployment "Watch deployment status")))
+  (let ((buf (get-buffer-create "*kubed-deployment-status*")))
+    (with-current-buffer buf (erase-buffer))
+    (make-process
+     :name "*kubed-watch-deployment-status*"
+     :buffer buf
+     :command `(,kubed-kubectl-program "rollout" "status" "deployment" ,dep
+                                       ,@(when namespace `("-n" ,namespace)))
+     :sentinel
+     (lambda (_proc status)
+       (when (member status
+                     '("finished\n" "exited abnormally with code 1\n"))
+         (kubed-update-deployments))))
+    (display-buffer buf)))
+
+(defcustom kubed-restart-deployment-watch-status t
+  "Whether to pop up a progress buffer when restarting Kubernetes deployments."
+  :type 'boolean)
+
+;;;###autoload
 (defun kubed-restart-deployment (dep &optional namespace)
   "Restart Kubernetes deployment DEP in namespace NAMESPACE.
 If NAMESPACE is nil or omitted, it defaults to the current namespace."
@@ -1168,7 +1194,9 @@ If NAMESPACE is nil or omitted, it defaults to the current namespace."
                   "rollout" "restart" "deployment" dep
                   (when namespace (list "-n" namespace))))
     (user-error "Failed to restart Kubernetes deployment `%s'" dep))
-  (message "Restarted Kubernetes deployment `%s'." dep))
+  (message "Restarting Kubernetes deployment `%s'." dep)
+  (when kubed-restart-deployment-watch-status
+    (kubed-watch-deployment-status dep namespace)))
 
 ;;;###autoload (autoload 'kubed-display-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-deployment "kubed" nil t)
@@ -1177,24 +1205,25 @@ If NAMESPACE is nil or omitted, it defaults to the current namespace."
 ;;;###autoload (autoload 'kubed-create-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-deployment-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource deployment
-    ((ready ".status.readyReplicas" 6
-           (lambda (l r) (< (string-to-number l) (string-to-number r)))
-           (lambda (s) (if (string= s "<none>") "0" s))
-           :right-align t)
-     (updated ".status.updatedReplicas" 8
-           (lambda (l r) (< (string-to-number l) (string-to-number r)))
-           (lambda (s) (if (string= s "<none>") "0" s))
-           :right-align t)
-     (available ".status.availableReplicas" 10
-           (lambda (l r) (< (string-to-number l) (string-to-number r)))
-           (lambda (s) (if (string= s "<none>") "0" s))
-           :right-align t)
-     (reps ".status.replicas" 4
-           (lambda (l r) (< (string-to-number l) (string-to-number r)))
-           nil                          ; formatting function
-           :right-align t)
-     (creationtimestamp ".metadata.creationTimestamp" 20))
-  :prefix (("R" "Restart" kubed-restart-deployment))
+    (( ready ".status.readyReplicas" 6
+       (lambda (l r) (< (string-to-number l) (string-to-number r)))
+       (lambda (s) (if (string= s "<none>") "0" s))
+       :right-align t)
+     ( updated ".status.updatedReplicas" 8
+       (lambda (l r) (< (string-to-number l) (string-to-number r)))
+       (lambda (s) (if (string= s "<none>") "0" s))
+       :right-align t)
+     ( available ".status.availableReplicas" 10
+       (lambda (l r) (< (string-to-number l) (string-to-number r)))
+       (lambda (s) (if (string= s "<none>") "0" s))
+       :right-align t)
+     ( reps ".status.replicas" 4
+       (lambda (l r) (< (string-to-number l) (string-to-number r)))
+       nil                              ; formatting function
+       :right-align t)
+     ( creationtimestamp ".metadata.creationTimestamp" 20))
+  :prefix (("R" "Restart" kubed-restart-deployment)
+           ("W" "Watch"   kubed-watch-deployment-status))
   :create
   ((name images &optional namespace replicas port command)
    "Deploy IMAGES to Kubernetes in deployment with name NAME.
@@ -1241,7 +1270,8 @@ optional command to run in the images."
   (restart "R" "Restart"
            (kubed-restart-deployment deployment k8sns)
            (unless kubed-restart-deployment-watch-status
-             (kubed-update-deployments t))))
+             (kubed-update-deployments t)))
+  (watch "W" "Watch" (kubed-watch-deployment-status deployment k8sns)))
 
 ;;;###autoload (autoload 'kubed-display-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-replicaset "kubed" nil t)
