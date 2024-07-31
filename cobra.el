@@ -129,8 +129,15 @@ Perform completion action A on string S with predicate P."
 Optional argument HIST is the name of the history list variable to use,
 if it is nil or omitted, it defaults to `shell-command-history'."
   (let ((exec (car (split-string-and-unquote initial))))
-    (completing-read prompt (apply-partially #'cobra-completion-table exec)
-                     nil nil initial (or hist 'shell-command-history))))
+    (minibuffer-with-setup-hook
+        (:append (lambda ()
+                   (let ((map (make-sparse-keymap)))
+                     ;; Ensure SPC is self-inserting.
+                     (keymap-unset map "SPC")
+                     (use-local-map
+                      (make-composed-keymap map (current-local-map))))))
+      (completing-read prompt (apply-partially #'cobra-completion-table exec)
+                       nil nil initial (or hist 'shell-command-history)))))
 
 (provide 'cobra)
 ;;; cobra.el ends here
