@@ -235,7 +235,7 @@ of the error, push a mark before moving point."
           (minibuffer-with-setup-hook
               (lambda ()
                 (set-syntax-table emacs-lisp-mode-syntax-table)
-                (setq-local kubed-list-read-filter-target-buffer buf)
+                (setq-local kubed--list-read-filter-target-buffer buf)
                 (add-hook
                  'completion-at-point-functions
                  (lambda ()
