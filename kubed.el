@@ -141,20 +141,35 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 
 (defun kubed-list-validate-atomic-filter (atom)
   "Return string explaining why ATOM is invalid, or nil if it is valid."
+  (unless (consp atom)
+    (throw 'validation-error
+           (format (substitute-quotes
+                    "Invalid atomic filter `%S', must be a list")
+                   atom)))
   (if (eq (car-safe atom) 'quote)
       (kubed-list-validate-atomic-filter (cadr atom))
-    (if (memq (car-safe atom) '(= ~))
-        (unless (ignore-errors
-                  (tabulated-list--column-number (symbol-name (nth 1 atom))))
-          (throw 'validation-error (format "Unknown column `%S'" (nth 1 atom))))
-      (throw 'validation-error (format "Unknown filter operator `%S'" (car atom))))))
+    (unless (length= atom 3)
+      (throw 'validation-error
+             (format (substitute-quotes
+                      "Invalid atomic filter `%S', must have three elements")
+                     atom)))
+    (unless (memq (car atom) '(= ~))
+      (throw 'validation-error
+             (format (substitute-quotes
+                      "Invalid filter operator `%S', must be one of `=', `~'")
+                     (car atom))))
+    (unless (ignore-errors
+              (tabulated-list--column-number (symbol-name (nth 1 atom))))
+      (throw 'validation-error (format (substitute-quotes
+                                        "Invalid column name `%S'")
+                                       (nth 1 atom))))))
 
 (defun kubed-list-validate-filter (filter)
   "Return string explaining why FILTER is invalid, or nil if it is valid."
   (catch 'validation-error
-    (if (listp (car filter))
+    (if (listp (car-safe filter))
         (dolist (disjunction filter)
-          (if (listp (car disjunction))
+          (if (and (consp disjunction) (listp (car disjunction)))
               (dolist (disjunct disjunction)
                 (kubed-list-validate-atomic-filter disjunct))
             (kubed-list-validate-atomic-filter disjunction)))
@@ -163,12 +178,97 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 (defvar-local kubed-list-filter-history-variable nil
   "History list variable to use for filter history in the current buffer.")
 
+(defvar-local kubed--list-read-filter-target-buffer nil
+  "Resource list buffer for which this minibuffer is reading a filter.")
+
+(defun kubed-list-try-read-filter ()
+  "Try to read a resource list filter in the minibuffer.
+
+Exit the minibuffer if successful, else report the error and move point
+to the location of the error.  If point is not already at the location
+of the error, push a mark before moving point."
+  (interactive "" minibuffer-mode)
+  (let* ((prompt-end (minibuffer-prompt-end))
+         (contents (minibuffer-contents))
+         (error-point nil) (error-message nil) (form nil) (inval nil))
+    (with-temp-buffer
+      (condition-case err
+          (progn
+            ;; FIXME: There is a small edge case here that could get
+            ;; better treatment: when `contents' ends with " ?", it
+            ;; espaces the terminating closing parenthesis and leads us
+            ;; to incorrectly report the input as incomplete.
+            (insert "(" contents ")")
+            (goto-char (point-min))
+            (setq form (read (current-buffer))))
+        (error (setq error-point (+ prompt-end (1- (point)))
+                     error-message err))))
+    (cond
+     (error-point
+      (unless (= (point) error-point) (push-mark))
+      (goto-char error-point)
+      (minibuffer-message (error-message-string error-message)))
+     ((setq inval (with-current-buffer kubed--list-read-filter-target-buffer
+                    (kubed-list-validate-filter form)))
+      (minibuffer-message inval))
+     (t (exit-minibuffer)))))
+
+(defvar-keymap kubed-list-read-filter-map
+  :parent minibuffer-local-map
+  "TAB" #'completion-at-point
+  "<remap> <exit-minibuffer>" #'kubed-list-try-read-filter)
+
 (defun kubed-list-read-filter (prompt)
   "Prompt with PROMPT for a filter for the current buffer."
-  (let ((filter (read-string
-                 (format-prompt prompt "disable")
-                 (mapconcat #'prin1-to-string kubed-list-filter " ")
-                 kubed-list-filter-history-variable "")))
+  (let* ((buf (current-buffer))
+         (cols (seq-map #'car tabulated-list-format))
+         (vals (let ((tmp nil))
+                 (dolist (ent (let ((kubed-list-filter nil))
+                                (funcall tabulated-list-entries)))
+                   (let ((i 0))
+                     (dolist (col cols)
+                       (push (aref (cadr ent) i)
+                             (alist-get col tmp nil nil #'string=))
+                       (setq i (1+ i)))))
+                 (mapcar #'delete-dups tmp)))
+         (filter
+          (minibuffer-with-setup-hook
+              (lambda ()
+                (set-syntax-table emacs-lisp-mode-syntax-table)
+                (setq-local kubed-list-read-filter-target-buffer buf)
+                (add-hook
+                 'completion-at-point-functions
+                 (lambda ()
+                   (let ((cont (buffer-substring
+                                (minibuffer-prompt-end) (point)))
+                         (bounds (or (bounds-of-thing-at-point 'symbol)
+                                     (cons (point) (point)))))
+                     (with-temp-buffer
+                       (set-syntax-table emacs-lisp-mode-syntax-table)
+                       (insert "(" cont)
+                       (when-let ((f-a (elisp--fnsym-in-current-sexp))
+                                  ((car f-a))
+                                  (a (cadr f-a)))
+                         (cond
+                          ((= a 1)
+                           ;; Complete column names.
+                           (list (car bounds) (cdr bounds) cols))
+                          ((= a 2)
+                           ;; Complete column values.
+                           (when-let ((beg (nth 1 (syntax-ppss)))
+                                      (col (save-excursion
+                                             (goto-char beg)
+                                             (forward-char 1)
+                                             (forward-sexp 2)
+                                             (thing-at-point 'symbol))))
+                             (list (car bounds) (cdr bounds)
+                                   (alist-get col vals nil nil #'string=)))))))))
+                 nil t))
+            (read-from-minibuffer
+             (format-prompt prompt "disable")
+             (mapconcat #'prin1-to-string kubed-list-filter " ")
+             kubed-list-read-filter-map nil
+             kubed-list-filter-history-variable ""))))
     (car (ignore-errors (read-from-string (format "(%s)" filter))))))
 
 (defun kubed-list-set-filter (filter)
