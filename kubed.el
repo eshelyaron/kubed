@@ -246,23 +246,28 @@ of the error, push a mark before moving point."
                      (with-temp-buffer
                        (set-syntax-table emacs-lisp-mode-syntax-table)
                        (insert "(" cont)
-                       (when-let ((f-a (elisp--fnsym-in-current-sexp))
-                                  ((car f-a))
-                                  (a (cadr f-a)))
-                         (cond
-                          ((= a 1)
-                           ;; Complete column names.
-                           (list (car bounds) (cdr bounds) cols))
-                          ((= a 2)
-                           ;; Complete column values.
-                           (when-let ((beg (nth 1 (syntax-ppss)))
-                                      (col (save-excursion
-                                             (goto-char beg)
-                                             (forward-char 1)
-                                             (forward-sexp 2)
-                                             (thing-at-point 'symbol))))
-                             (list (car bounds) (cdr bounds)
-                                   (alist-get col vals nil nil #'string=)))))))))
+                       (when-let ((fn-argi (elisp--fnsym-in-current-sexp))
+                                  (argi (cadr fn-argi)))
+                         (if (= argi 0)
+                             ;; Complete operators.
+                             (list (car bounds) (cdr bounds) '("=" "~"))
+                           (when (car fn-argi)
+                             (cond
+                              ((= argi 1)
+                               ;; Complete column names.
+                               (list (car bounds) (cdr bounds) cols))
+                              ((= argi 2)
+                               ;; Complete column values.
+                               (when-let ((beg (nth 1 (syntax-ppss)))
+                                          ;; Grab preceding symbol.
+                                          (col (save-excursion
+                                                 (goto-char beg)
+                                                 (forward-char 1)
+                                                 (forward-sexp 2)
+                                                 (thing-at-point 'symbol))))
+                                 (list (car bounds) (cdr bounds)
+                                       (alist-get col vals
+                                                  nil nil #'string=)))))))))))
                  nil t))
             (read-from-minibuffer
              (format-prompt prompt "disable")
