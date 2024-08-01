@@ -41,10 +41,6 @@
 ;; You may also want to try out the companion library `kubed-transient',
 ;; which provides transient menus for some of the commands defined here.
 
-;;; Todo:
-
-;; - Support filtering resource lists.
-
 ;;; Code:
 
 (defgroup kubed nil
@@ -97,6 +93,125 @@ obtaining new information from Kuberenetes clusters.")
   (message "Kubed \"all namespaces\" mode is now %s"
            (if kubed-all-namespaces-mode "ON" "OFF")))
 
+(defun kubed-list-interpret-atomic-filter (atom)
+  "Return function that implements atomic filter ATOM."
+  (if (eq (car-safe atom) 'quote)
+      (let ((p (kubed-list-interpret-atomic-filter (cadr atom))))
+        (lambda (x) (not (funcall p x))))
+    (let* ((column-number (tabulated-list--column-number (symbol-name (nth 1 atom))))
+           (value (nth 2 atom))
+           (value (if (stringp value) value (prin1-to-string value)))
+           (op (cond
+                ((eq (car atom) '=) #'string=)
+                ((eq (car atom) '~) #'string-match-p)
+                (t (user-error "Unknown filter operator `%S'" (car atom))))))
+      (lambda (x) (funcall op value (aref (cadr x) column-number))))))
+
+(defvar-local kubed-list-filter nil "Filter in effect in the current buffer.")
+
+(defun kubed-list-interpret-filter (&optional filter)
+  "Return function that implements FILTER.
+
+If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
+  (let ((conjunction (or filter kubed-list-filter)))
+    (if (listp (car conjunction))
+        (let ((conjuncts
+               (mapcar (lambda (disjunction)
+                         (if (listp (car disjunction))
+                             (let ((disjuncts
+                                    (mapcar #'kubed-list-interpret-atomic-filter
+                                            disjunction)))
+                               (lambda (entry)
+                                 (catch 'keep-it
+                                   (dolist (pred disjuncts)
+                                     (when (funcall pred entry)
+                                       (throw 'keep-it t)))
+                                   nil)))
+                           ;; Single atomic disjunct.
+                           (kubed-list-interpret-atomic-filter disjunction)))
+                       (or conjunction kubed-list-filter))))
+          (lambda (entry)
+            (catch 'keep-it
+              (dolist (pred conjuncts)
+                (unless (funcall pred entry)
+                  (throw 'keep-it nil)))
+              t)))
+      ;; Single atomic conjunct.
+      (kubed-list-interpret-atomic-filter conjunction))))
+
+(defun kubed-list-validate-atomic-filter (atom)
+  "Return string explaining why ATOM is invalid, or nil if it is valid."
+  (if (eq (car-safe atom) 'quote)
+      (kubed-list-validate-atomic-filter (cadr atom))
+    (if (memq (car-safe atom) '(= ~))
+        (unless (ignore-errors
+                  (tabulated-list--column-number (symbol-name (nth 1 atom))))
+          (throw 'validation-error (format "Unknown column `%S'" (nth 1 atom))))
+      (throw 'validation-error (format "Unknown filter operator `%S'" (car atom))))))
+
+(defun kubed-list-validate-filter (filter)
+  "Return string explaining why FILTER is invalid, or nil if it is valid."
+  (catch 'validation-error
+    (if (listp (car filter))
+        (dolist (disjunction filter)
+          (if (listp (car disjunction))
+              (dolist (disjunct disjunction)
+                (kubed-list-validate-atomic-filter disjunct))
+            (kubed-list-validate-atomic-filter disjunction)))
+      (kubed-list-validate-atomic-filter filter))))
+
+(defvar-local kubed-list-filter-history-variable nil
+  "History list variable to use for filter history in the current buffer.")
+
+(defun kubed-list-read-filter (prompt)
+  "Prompt with PROMPT for a filter for the current buffer."
+  (let ((filter (read-string
+                 (format-prompt prompt "disable")
+                 (mapconcat #'prin1-to-string kubed-list-filter " ")
+                 kubed-list-filter-history-variable "")))
+    (car (ignore-errors (read-from-string (format "(%s)" filter))))))
+
+(defun kubed-list-set-filter (filter)
+  "Set the filter of the current buffer to FILTER.
+
+FILTER determines which resources to keep.  FILTER can be an atomic
+filter, which is a list (OP COL VAL), where OP is one of the symbols
+\\+`=' and `~', COL is a symbol whose name is a column name, and VAL is
+a string or an object whose printed representation is compared to the
+value of the column COL according to OP.  If OP is \\+`=' it says to
+compare with `string=', if OP is `~' it says to use `string-match-p'.
+For example, the atomic filter (= Name foobar) keeps only resources
+whose name is \"foobar\".  (= Name \"foobar\") does exactly the same.
+You can also negate an atomic filter by quoting it, for instance
+\\='(~ Namespace kube) filters out all resources in namespaces that
+include \"kube\" as a substring.
+
+FILTER can also be a list of sub-filters (SUB1 SUB2 ...) where each
+sub-filter is either an atomic filter or a list of atomic filters.  If a
+sub-filter is a list of atomic filters, then that sub-filter denotes the
+disjunction of those atomic filters.  FILTER denotes the conjunction of
+the sub-filters.  In particular, FILTER nil denotes the empty
+conjunction which is always true (keeps all resources).
+
+More examples:
+
+- `((= Name foobar) (~ Namespace kube))': keep only resources named
+  \"foobar\" in namespaces that contain \"kube\".
+- `(((= Name foobar) (~ Namespace kube)))': keep resources that are
+  either named \"foobar\" or in a namespace that contains \"kube\".
+- `(((= Name foobar) (~ Namespace kube)) \\='(~ Starttime 2024-07))':
+  keep only resources that are either named \"foobar\" or in a namespace
+  that contains \"kube\", and were not started during July 2024.
+
+Interactively, prompt for FILTER sans the outermost set of parenthesis.
+For example, enter \"= Name foobar\" in the minibuffer to specify the
+atomic FILTER (= Name foobar)."
+  (interactive (list (kubed-list-read-filter "Set filter")) kubed-list-mode)
+  (when-let ((validation-error (kubed-list-validate-filter filter)))
+    (user-error validation-error))
+  (setq-local kubed-list-filter filter)
+  (revert-buffer))
+
 (defun kubed-list-mark-for-deletion ()
   "Mark Kubernetes resource at point for deletion."
   (interactive "" kubed-list-mode)
@@ -109,6 +224,7 @@ obtaining new information from Kuberenetes clusters.")
 
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
+  "/" #'kubed-list-set-filter
   "A" #'kubed-all-namespaces-mode
   "d" #'kubed-list-mark-for-deletion
   "u" #'kubed-list-unmark)
@@ -655,14 +771,18 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 
        (defun ,ents-fun ()
          ,(format "`tabulated-list-entries' function for `%s'." mod-name)
-         (mapcar
-          (lambda (c) (list ,(if namespaced
-                                 `(if kubed-all-namespaces-mode
-                                      (concat (car c) " " (cadr c))
-                                    (car c))
-                               `(car c))
-                            (apply #'vector c)))
-          ,ents-var))
+         (let ((pred (kubed-list-interpret-filter))
+               (ents nil))
+           (dolist (c ,ents-var)
+             (let ((ent (list ,(if namespaced
+                                   `(if kubed-all-namespaces-mode
+                                        (concat (car c) " " (cadr c))
+                                      (car c))
+                                 `(car c))
+                              (apply #'vector c))))
+               (when (funcall pred ent)
+                 (push ent ents))))
+           (nreverse ents)))
 
        (defun ,exec-cmd ()
          ,(format "Delete marked Kubernetes %S." plrl-var)
@@ -848,9 +968,15 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
        (define-derived-mode ,mod-name kubed-list-mode
          (list ,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
                (list ',proc-var
-                     (list :propertize "[...]" 'help-echo "Updating...")))
+                     (list :propertize "[...]" 'help-echo "Updating...")
+                     (list 'kubed-list-filter
+                           (list :propertize
+                                 (list "[" '(:eval (mapconcat #'prin1-to-string kubed-list-filter " ")) "]")
+                                 'help-echo "Current filter"))))
          ,(format "Major mode for listing Kubernetes %S." plrl-var)
          :interactive nil
+         (setq kubed-list-filter-history-variable
+               ',(intern (format "kubed-%S-filter-history" plrl-var)))
          (setq tabulated-list-format (,frmt-fun))
          (setq tabulated-list-entries #',ents-fun)
          (setq tabulated-list-padding 2)
@@ -867,6 +993,9 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                              (unless kubed-frozen
                                (setq ,ents-var ,list-var)
                                (setq tabulated-list-format (,frmt-fun))
+                               (when (kubed-list-validate-filter kubed-list-filter)
+                                 ;; Nullify filter, if no longer valid.
+                                 (setq kubed-list-filter nil))
                                (tabulated-list-init-header)
                                (revert-buffer)))))))
              (add-hook ',hook-var fun)
