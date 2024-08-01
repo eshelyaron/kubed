@@ -97,6 +97,50 @@ obtaining new information from Kuberenetes clusters.")
   (message "Kubed \"all namespaces\" mode is now %s"
            (if kubed-all-namespaces-mode "ON" "OFF")))
 
+(defun kubed-list-mark-for-deletion ()
+  "Mark Kubernetes resource at point for deletion."
+  (interactive "" kubed-list-mode)
+  (tabulated-list-put-tag (propertize "D" 'help-echo "Marked for deletion") t))
+
+(defun kubed-list-unmark ()
+  "Remove mark from Kubernetes resource at point."
+  (interactive "" kubed-list-mode)
+  (tabulated-list-put-tag " " t))
+
+(defvar-keymap kubed-list-mode-map
+  :doc "Common keymap for Kubernetes resource list buffers."
+  "A" #'kubed-all-namespaces-mode
+  "d" #'kubed-list-mark-for-deletion
+  "u" #'kubed-list-unmark)
+
+(define-derived-mode kubed-list-mode tabulated-list-mode "Kubernetes Resources"
+  "Major mode for listing Kubernetes resources.
+
+Modes for specific resource types, such as `kubed-pods-mode', use this
+mode as their parent."
+  :interactive nil
+  (add-hook 'revert-buffer-restore-functions
+            (lambda ()
+              (let (marks)
+                (save-excursion
+                  (goto-char (point-min))
+                  (while (not (eobp))
+                    (unless (eq (char-after) ?\s)
+                      (push (cons (tabulated-list-get-id)
+                                  ;; Preserve mark properties.
+                                  (buffer-substring (point) (1+ (point))))
+                            marks))
+                    (forward-line)))
+                (lambda ()
+                  (save-excursion
+                    (goto-char (point-min))
+                    (while (not (eobp))
+                      (when-let ((mark (alist-get (tabulated-list-get-id) marks nil nil #'equal)))
+                        (tabulated-list-put-tag mark))
+                      (forward-line))))))
+            nil t)
+  (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow)))
+
 ;;;###autoload
 (defmacro kubed-define-resource (resource &optional properties &rest commands)
   "Define Kubernetes RESOURCE with associated PROPERTIES and COMMANDS.
@@ -194,8 +238,8 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         (keyword nil)
         list-var ents-var hook-var proc-var frmt-var read-crm sure-fun
         ents-fun buff-fun frmt-fun affx-fun updt-cmd list-cmd expl-cmd
-        mark-cmd umrk-cmd exec-cmd list-buf out-name err-name dlt-errb
-        dlt-name mod-name ctxt-fun crt-spec prf-keys)
+        exec-cmd list-buf out-name err-name dlt-errb dlt-name mod-name
+        ctxt-fun crt-spec prf-keys)
 
     ;; Process keyword arguments.
     (while (keywordp (car commands))
@@ -222,8 +266,6 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
           updt-cmd (intern (format "kubed-update-%S"        plrl-var))
           list-cmd (intern (format "kubed-list-%S"          plrl-var))
           expl-cmd (intern (format "kubed-explain-%S"       plrl-var))
-          mark-cmd (intern (format "kubed-%S-mark-for-deletion" plrl-var))
-          umrk-cmd (intern (format "kubed-%S-unmark"        plrl-var))
           exec-cmd (intern (format "kubed-%S-execute"       plrl-var))
           list-buf         (format "*kubed-%S*"             plrl-var)
           out-name         (format " *kubed-get-%S*"        plrl-var)
@@ -622,17 +664,6 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
                             (apply #'vector c)))
           ,ents-var))
 
-       (defun ,mark-cmd ()
-         ,(format "Mark Kubernetes %S at point for deletion." resource)
-         (interactive "" ,mod-name)
-         (tabulated-list-put-tag
-          (propertize "D" 'help-echo "Marked for deletion") t))
-
-       (defun ,umrk-cmd ()
-         ,(format "Remove mark from Kubernetes %S at point." resource)
-         (interactive "" ,mod-name)
-         (tabulated-list-put-tag " " t))
-
        (defun ,exec-cmd ()
          ,(format "Delete marked Kubernetes %S." plrl-var)
          (interactive "" ,mod-name)
@@ -763,11 +794,8 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
 
        (defvar-keymap ,(intern (format "kubed-%S-mode-map" plrl-var))
          :doc ,(format "Keymap for `%S" mod-name)
-         "A"   #'kubed-all-namespaces-mode
          "G"   #',updt-cmd
-         "d"   #',mark-cmd
          "x"   #',exec-cmd
-         "u"   #',umrk-cmd
          "+"   #',crt-name
          ,@(mapcan
             (pcase-lambda (`(,suffix ,key ,_desc . ,_body))
@@ -817,36 +845,15 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
               (reverse commands)))
          menu)
 
-       (define-derived-mode ,mod-name tabulated-list-mode
+       (define-derived-mode ,mod-name kubed-list-mode
          (list ,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
                (list ',proc-var
                      (list :propertize "[...]" 'help-echo "Updating...")))
          ,(format "Major mode for listing Kubernetes %S." plrl-var)
          :interactive nil
-         (add-hook 'revert-buffer-restore-functions
-                   (lambda ()
-                     (let (marks)
-                       (save-excursion
-                         (goto-char (point-min))
-                         (while (not (eobp))
-                           (unless (eq (char-after) ?\s)
-                             (push (cons (tabulated-list-get-id)
-                                         ;; Preserve mark properties.
-                                         (buffer-substring (point) (1+ (point))))
-                                   marks))
-                           (forward-line)))
-                       (lambda ()
-                         (save-excursion
-                           (goto-char (point-min))
-                           (while (not (eobp))
-                             (when-let ((mark (alist-get (tabulated-list-get-id) marks nil nil #'equal)))
-                               (tabulated-list-put-tag mark))
-                             (forward-line))))))
-                   nil t)
          (setq tabulated-list-format (,frmt-fun))
          (setq tabulated-list-entries #',ents-fun)
          (setq tabulated-list-padding 2)
-         (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow))
          (add-hook 'context-menu-functions #',ctxt-fun nil t)
          (tabulated-list-init-header))
 
