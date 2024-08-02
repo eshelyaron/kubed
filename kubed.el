@@ -725,9 +725,12 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
          ,(format "Populate `%S', if not already populated." list-var)
          (unless (or ,list-var (process-live-p ,proc-var)) (,updt-cmd)))
 
-       (defun ,updt-cmd (&optional silent)
+       (defun ,updt-cmd (&optional quiet)
          ,(format "Update `%S'.
-Non-nil optional argument SILENT says to inhibit progress messages."
+
+If optional argument QUIET is non-nil, do not emit a message when
+starting to update.  Display a message when the update is done
+regardless of QUIET."
                   list-var)
          (interactive)
          (when (process-live-p ,proc-var) (delete-process ,proc-var))
@@ -810,14 +813,13 @@ Non-nil optional argument SILENT says to inhibit progress messages."
                       (setq ,list-var new
                             ,proc-var nil)
                       (run-hooks ',hook-var)
-                      (unless silent
-                        (message ,(format "Updated Kubernetes %S." plrl-var)))))
+                      (message ,(format "Updated Kubernetes %S." plrl-var))))
                    ((string= status "exited abnormally with code 1\n")
                     (with-current-buffer ,err-name
                       (goto-char (point-max))
                       (insert "\n" status))
                     (display-buffer ,err-name))))))
-         (unless silent
+         (unless quiet
            (minibuffer-message ,(format "Updating Kubernetes %S..." plrl-var))))
 
        (defun ,affx-fun (,plrl-var)
@@ -932,7 +934,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
            `((add-hook 'kubed-all-namespaces-mode-hook
                        (lambda ()
                          (setq ,list-var nil)
-                         (,updt-cmd)))))
+                         (,updt-cmd t)))))
 
        (defun ,edt-name (,resource . ,(when namespaced '(&optional k8sns)))
          ,(format "Edit Kubernetes %S %s."
