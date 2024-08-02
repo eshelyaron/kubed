@@ -236,7 +236,7 @@ just the current namespace.
 Move point to the next line (@code{next-line}).
 @kindex p
 @findex previous-line
-@item n
+@item p
 Move point to the previous line (@code{previous-line}).
 @kindex @key{TAB}
 @findex kubed-list-next-column
@@ -250,6 +250,20 @@ column, move to the first column of the next line instead
 Move point to the previous column.  If point is already at the first
 column, move to the last column of the previous line instead
 (@code{kubed-list-previous-column}).
+@kindex S
+@findex tabulated-list-sort
+@item S
+Sort lines by the column at point (@code{tabulated-list-sort}).
+@kindex @{
+@findex tabulated-list-narrow-current-column
+@item @{
+Narrow the column at point
+(@code{tabulated-list-narrow-current-column}).
+@kindex @}
+@findex tabulated-list-widen-current-column
+@item @}
+Widen the column at point
+(@code{tabulated-list-widen-current-column}).
 @end table
 
 @menu
