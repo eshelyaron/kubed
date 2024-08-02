@@ -368,12 +368,23 @@ to 1."
       (unless next (user-error "End of table")))
     (goto-char next)))
 
+(defun kubed-list-copy-as-kill (click)
+  "Copy name of Kubernetes resource at CLICK to into the kill ring."
+  (interactive (list last-nonmenu-event) kubed-list-mode)
+  (if-let ((ent (tabulated-list-get-entry (mouse-set-point click)))
+           (new (aref ent 0)))
+      (progn
+        (kill-new new)
+        (message "Copied resource name `%s'" new))
+    (user-error "No Kubernetes resource at point")))
+
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
   "/" #'kubed-list-set-filter
   "A" #'kubed-all-namespaces-mode
   "d" #'kubed-list-mark-for-deletion
   "u" #'kubed-list-unmark
+  "w" #'kubed-list-copy-as-kill
   "C-i" #'kubed-list-next-column
   "TAB" #'kubed-list-next-column
   "C-S-i" #'kubed-list-previous-column
