@@ -66,6 +66,100 @@ by default it is `yaml-ts-mode'."
   "List of functions to call when setting up Kubernetes pod logs buffers."
   :type 'hook)
 
+(defvar-local kubed-display-resource-info nil
+  "Information about Kubernetes resource that current buffer displays.
+
+The value is a list (TYPE NAME CONTEXT NAMESPACE), where TYPE is the
+type of the resource, NAME is the name of the resource, CONTEXT is the
+`kubectl' context to use for accessing the resource, and NAMESPACE is
+the namespace of the resource, or nil if TYPE is not namespaced.")
+
+(put 'kubed-display-resource-info 'permanent-local t)
+
+(defun kubed-display-resource-revert (&optional _ _)
+  "Clear and populate current Kuberenetes resource buffer."
+  (seq-let (type name context namespace)
+      kubed-display-resource-info
+    (let ((inhibit-read-only t)
+          (target (current-buffer)))
+      (buffer-disable-undo)
+      (with-temp-buffer
+        (unless (zerop
+                 (apply
+                  #'call-process
+                  kubed-kubectl-program nil t nil "get"
+                  type "--output=yaml" name
+                  (append (when namespace (list "-n" namespace))
+                          (when context (list "--context" context)))))
+          (error "Failed to display Kubernetes resource `%s'" name))
+        (let ((source (current-buffer)))
+          (with-current-buffer target
+            (replace-buffer-contents source)
+            (set-buffer-modified-p nil)
+            (buffer-enable-undo)))))))
+
+(defun kubed-display-resource-in-buffer
+    (buffer type resource &optional context namespace)
+  "Display Kubernetes RESOURCE of type TYPE in BUFFER."
+  (let ((info (list type resource context namespace)))
+    (with-current-buffer (get-buffer-create buffer)
+      (setq-local kubed-display-resource-info info)
+      (kubed-display-resource-revert)
+      (goto-char (point-min))
+      (run-hooks 'kubed-yaml-setup-hook)
+      (kubed-display-resource-mode)
+      (current-buffer))))
+
+(declare-function bookmark-prop-get                 "bookmark")
+(declare-function bookmark-get-front-context-string "bookmark")
+(declare-function bookmark-get-rear-context-string  "bookmark")
+(declare-function bookmark-make-record-default      "bookmark")
+
+;;;###autoload
+(defun kubed-display-resource-handle-bookmark (bookmark)
+  "Display Kubernetes resource according to BOOKMARK."
+  (require 'bookmark)
+  (seq-let (type name context namespace)
+      (bookmark-prop-get bookmark 'resource)
+    (set-buffer
+     (kubed-display-resource-in-buffer
+      (concat "*Kubed " type "/" name
+              (when namespace (concat "@" namespace))
+              (when context (concat "[" context "]"))
+              "*")
+      type name context namespace))
+    (when-let ((str (bookmark-get-front-context-string bookmark))
+               ((search-forward str (point-max) t)))
+      (goto-char (match-beginning 0)))
+    (when-let ((str (bookmark-get-rear-context-string bookmark))
+               ((search-backward str (point-min) t)))
+      (goto-char (match-end 0)))))
+
+(put 'kubed-display-resource-handle-bookmark 'bookmark-handler-type "Kubed")
+
+(defun kubed-display-resource-make-bookmark ()
+  "Return bookmark pointing to currently displayed Kubernetes resource."
+  (require 'bookmark)
+  (seq-let (type name context namespace) kubed-display-resource-info
+    (cons
+     (concat type "/" name
+             (when namespace (concat "@" namespace))
+             (when context   (concat "[" context "]")))
+     (append
+      (list
+       (cons 'handler #'kubed-display-resource-handle-bookmark)
+       (cons 'resource kubed-display-resource-info))
+      (bookmark-make-record-default t)))))
+
+(define-minor-mode kubed-display-resource-mode
+  "Minor mode for buffers that display a Kuberenetes resource."
+  :interactive nil
+  :lighter " Kubed"
+  (when kubed-display-resource-mode
+    (setq-local
+     revert-buffer-function        #'kubed-display-resource-revert
+     bookmark-make-record-function #'kubed-display-resource-make-bookmark)))
+
 ;;;###autoload
 (defun kubed-update-all ()
   "Update all Kuberenetes resource lists."
@@ -794,32 +888,9 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
        (defun ,desc-fun (,resource . ,(when namespaced '(&optional k8sns)))
          ,(format "Return buffer describing Kubernetes %S %s"
                   resource (upcase (symbol-name resource)))
-         (let* ((buf (get-buffer-create ,buf-name))
-                (fun (lambda (&optional _ _)
-                       (let ((inhibit-read-only t)
-                             (target (current-buffer)))
-                         (buffer-disable-undo)
-                         (with-temp-buffer
-                           (unless (zerop
-                                    (call-process
-                                     kubed-kubectl-program nil t nil "get"
-                                     ,(symbol-name resource) "--output=yaml" ,resource
-                                     . ,(when namespaced
-                                          '((if k8sns
-                                                (concat "--namespace=" k8sns)
-                                              "--all-namespaces=false")))))
-                             (error ,(format "`kubectl get %S' failed" resource)))
-                           (let ((source (current-buffer)))
-                             (with-current-buffer target
-                               (replace-buffer-contents source)
-                               (set-buffer-modified-p nil)
-                               (buffer-enable-undo))))))))
-           (with-current-buffer buf
-             (funcall fun)
-             (goto-char (point-min))
-             (run-hooks 'kubed-yaml-setup-hook)
-             (setq-local revert-buffer-function fun))
-           buf))
+         (kubed-display-resource-in-buffer
+          ,buf-name ,(symbol-name plrl-var) ,resource (kubed-current-context)
+          . ,(when namespaced '((or k8sns (kubed-current-namespace))))))
 
        ,@(when namespaced
            `((defun ,read-nms (prompt &optional default multi)
