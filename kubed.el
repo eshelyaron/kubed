@@ -216,6 +216,7 @@ of the error, push a mark before moving point."
 (defvar-keymap kubed-list-read-filter-map
   :parent minibuffer-local-map
   "TAB" #'completion-at-point
+  "M-?" #'completion-help-at-point
   "<remap> <exit-minibuffer>" #'kubed-list-try-read-filter)
 
 (defun kubed-list-read-filter (prompt)
