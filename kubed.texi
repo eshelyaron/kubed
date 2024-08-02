@@ -130,6 +130,7 @@ The two most important entry points for Kubed are
 @cindex prefix keymap, global commands
 @cindex keymap, for global commands
 @defvr Keymap kubed-prefix-map
+@anchor{Definition of kubed-prefix-map}
 Keymap with bindings for many useful Kubed commands.
 @end defvr
 
@@ -178,6 +179,143 @@ The following sections describe in detail the various Kubed commands.
 
 @node Browsing Resources
 @section Browsing Resources
+
+Kubed gives you an interactive list of resources for each type, that
+you access with the @code{kubed-list-@var{resource}s} commands, such
+as @code{kubed-list-pods} which shows you the list of Kubernetes pods
+in buffer @file{*kubed-pods*}.
+
+These commands are bound to @kbd{l} in Kubed's type-specific prefix
+keymaps, most of which are accessible via the global
+@code{kubed-prefix-map} by default (@pxref{Definition of
+kubed-prefix-map}).  So if you've bound @code{kubed-prefix-map} to
+@kbd{C-c k}, you can pop up the pods list with @kbd{C-c k p l}, the
+deployments list with @kbd{C-c k d l}, the namespaces list with
+@kbd{C-c k N l}, etc.
+
+Each resource type has its own major mode for list buffers with
+type-specific commands and operations, but they are all also derived
+from a shared parent mode.  The @file{*kubed-pods*} buffer uses the
+@code{kubed-pods-mode} (@samp{Kubernetes Pods}) major mode, the list
+of Kubernetes deployments in buffer @file{*kubed-deployments*} uses
+@code{kubed-deployments-mode}, and so on.
+
+The common parent major mode is @code{kubed-list-mode}:
+
+@deffn {Major Mode} kubed-list-mode
+Major mode for listing generic Kubernetes resources.
+@end deffn
+
+This provides several commands for all type-specific derived modes:
+
+@table @kbd
+@kindex /
+@findex kubed-list-set-filter
+@item /
+Filter the current list of resources (@code{kubed-list-set-filter}).
+@xref{List Filter}.
+@kindex d
+@findex kubed-list-mark-for-deletion
+@item d
+Mark the resource at point for deletion
+(@code{kubed-list-mark-for-deletion}).  Resources marked for deletion
+have a @samp{D} in the beginning of their line.
+@kindex u
+@findex kubed-list-unmark
+@item u
+Unmark from resource at point (@code{kubed-list-unmark}).
+@kindex A
+@findex kubed-all-namespaces-mode
+@item A
+Toggle @code{kubed-all-namespaces-mode}.  When enabled, resource lists
+for namespaced resource types show resources from all namespaces, not
+just the current namespace.
+@kindex n
+@findex next-line
+@item n
+Move point to the next line (@code{next-line}).
+@kindex p
+@findex previous-line
+@item n
+Move point to the previous line (@code{previous-line}).
+@kindex @key{TAB}
+@findex kubed-list-next-column
+@item @key{TAB}
+Move point to the next column.  If point is already at the last
+column, move to the first column of the next line instead
+(@code{kubed-list-next-column}).
+@kindex S-@key{TAB}
+@findex kubed-list-previous-column
+@item S-@key{TAB}
+Move point to the previous column.  If point is already at the first
+column, move to the last column of the previous line instead
+(@code{kubed-list-previous-column}).
+@end table
+
+@menu
+* List Filter::
+@end menu
+
+@node List Filter
+@subsection Filtering Resource Lists
+
+In all Kubernetes resource list buffers, you can use @kbd{/}
+(@code{kubed-list-set-filter}) to @dfn{filter} the list of resources.
+This command sets the filter of the current buffer, which specifies
+conditions on resources (lines).  Resources that don't satisfy the
+conditions are hidden, so you can focus on those that do.
+
+Filters can be simple (@dfn{atomic filters}) or complex (@dfn{composed
+filters}).  In the simple case, you enter a filter in the minibuffer
+in the format @w{@samp{@var{op} @var{col} @var{val}}}, where @var{op}
+is a comparison operator, either @samp{=} or @samp{~}, @var{col} is a
+column name, and @var{val} is a value to compare to values of
+@var{col} with @var{op}.
+
+If @var{op} is @samp{=}, it says to keep only lines whose @code{col}
+equals @var{val}.  If @var{op} is @samp{~}, it says to keep lines
+whose @code{col} matches the @var{val} as a regular expression.  For
+example, the filter @samp{= Name foobar} keeps only resources whose
+name is @samp{foobar}.  To include whitespace in @var{val}, wrap
+@var{val} in double quotes, like so: @samp{= Name "foo bar"}.
+
+You can use more refined filters by composing simple filters.  To add
+another filter that resources must satisfy, wrap your two filters in
+parentheses and put them next to each other:
+
+@lisp
+(= Name foobar) (~ Namespace kube)
+@end lisp
+
+@noindent
+This filter keeps only resources whose name is @samp{foobar} in
+namespaces that include @samp{kube} as a substring, it expresses the
+conjunction of the two simple filters.
+
+To negate a simple filter, put a single quote ahead of it, like so:
+
+@lisp
+(= Name foobar) '(~ Namespace kube)
+@end lisp
+
+@noindent
+This matches resources named @samp{foobar} in namespaces that do
+@emph{not} contain @samp{kube}.
+
+To specify a disjunction of simple filters (and negated simple
+filters), add another level of nesting:
+
+@lisp
+((= Name spam) (= Name foobar)) '(~ Namespace kube)
+@end lisp
+
+@noindent
+This filter matches resources named either @samp{spam} or
+@samp{foobar}, in namespaces that do not contain @samp{kube}.
+
+While entering a filter in the minibuffer, @kbd{@key{TAB}} completion
+is available for column names and values.  To clear the filter, just
+exit the minibuffer with an empty input.
 
 @node Transient Menus
 @section Transient Menus

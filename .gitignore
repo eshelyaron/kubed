@@ -1,4 +1,5 @@
 *~
 *.elc
+*.info
 kubed-pkg.el
 kubed-autoloads.el
