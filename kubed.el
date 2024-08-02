@@ -566,6 +566,17 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
                   "o" "Pop to buffer showing description of"
                   (switch-to-buffer-other-window
                    (,desc-fun ,resource . ,(when namespaced '(k8sns)))))
+                 (kubectl-command
+                  "!" "Execute kubectl command with"
+                  (kubed-kubectl-command
+                   (kubed-read-kubectl-command
+                    "Execute command: "
+                    (cons (concat
+                           " "
+                           ,@(when namespaced
+                               `((when k8sns (concat "-n " k8sns " "))))
+                           ,(symbol-name resource) " " ,resource)
+                          0))))         ; Put point after "kubectl ".
                  (delete "D" "Delete"
                          ,(if namespaced
                               `(if k8sns
@@ -2478,6 +2489,17 @@ Optional argument DEFAULT is the minibuffer default argument."
 (declare-function cobra-read-command-line "cobra"
                   (prompt initial &optional hist))
 
+(defun kubed-read-kubectl-command (prompt &optional initial)
+  "Prompt with PROMPT for a `kubectl' command line.
+
+Optional argument INITIAL added to the initial minibuffer input
+following the value of `kubed-kubectl-program' and a space character."
+  (let ((init (if (consp initial)
+                  (cons    (concat kubed-kubectl-program " " (car initial))
+                        (+ (length kubed-kubectl-program) 1  (cdr initial)))
+                (concat kubed-kubectl-program " " initial))))
+    (cobra-read-command-line prompt init 'kubed-kubectl-command-history)))
+
 ;;;###autoload
 (defun kubed-kubectl-command (command)
   "Execute `kubectl' COMMAND.
@@ -2486,18 +2508,15 @@ This function calls `shell-command' (which see) to do the work.
 
 Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   (interactive
-   (list (cobra-read-command-line
+   (list (kubed-read-kubectl-command
           "Command: "
-          (concat
-           kubed-kubectl-program " "
-           (let* ((args (kubed-transient-args))
-                  (prefix (and (fboundp 'transient-prefix-object)
-                               (transient-prefix-object)))
-                  (scope (and prefix (fboundp 'eieio-oref)
-                              (eieio-oref prefix 'scope))))
-             (when (or args scope)
-               (concat (string-join (append scope args) " ") " "))))
-          'kubed-kubectl-command-history)))
+          (let* ((args (kubed-transient-args))
+                 (prefix (and (fboundp 'transient-prefix-object)
+                              (transient-prefix-object)))
+                 (scope (and prefix (fboundp 'eieio-oref)
+                             (eieio-oref prefix 'scope))))
+            (when (or args scope)
+              (concat (string-join (append scope args) " ") " "))))))
   (shell-command command))
 
 ;;;###autoload (autoload 'kubed-prefix-map "kubed" nil t 'keymap)
