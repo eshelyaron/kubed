@@ -66,6 +66,21 @@ by default it is `yaml-ts-mode'."
   "List of functions to call when setting up Kubernetes pod logs buffers."
   :type 'hook)
 
+(defcustom kubed-name-column '("Name" 48 t)
+  "Specification of name column in Kubernetes resource list buffers."
+  :type '(list string natnum boolean))
+
+(defcustom kubed-namespace-column '("Namespace" 12 t)
+  "Specification of namespace column in Kubernetes resource list buffers."
+  :type '(list string natnum boolean))
+
+;;;###autoload
+(define-minor-mode kubed-all-namespaces-mode
+  "Show Kubernetes resources from all namespaces, not just current namespace."
+  :global t
+  (message "Kubed \"all namespaces\" mode is now %s"
+           (if kubed-all-namespaces-mode "ON" "OFF")))
+
 (defvar-local kubed-display-resource-info nil
   "Information about Kubernetes resource that current buffer displays.
 
@@ -169,23 +184,8 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
 (defvar-local kubed-frozen nil
   "Whether the current buffer shows a frozen list of Kuberenetes resources.
 
-If a resource lists is frozen, then Emacs does not update it when
-obtaining new information from Kuberenetes clusters.")
-
-(defcustom kubed-name-column '("Name" 48 t)
-  "Specification of name column in Kubernetes resource list buffers."
-  :type '(list string natnum boolean))
-
-(defcustom kubed-namespace-column '("Namespace" 12 t)
-  "Specification of namespace column in Kubernetes resource list buffers."
-  :type '(list string natnum boolean))
-
-;;;###autoload
-(define-minor-mode kubed-all-namespaces-mode
-  "Show Kubernetes resources from all namespaces, not just current namespace."
-  :global t
-  (message "Kubed \"all namespaces\" mode is now %s"
-           (if kubed-all-namespaces-mode "ON" "OFF")))
+If a resources list is frozen, then Kubed does not update it when
+obtaining new information from Kuberenetes.")
 
 (defcustom kubed-list-filter-operator-alist
   '((= . string=)
