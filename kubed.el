@@ -6,7 +6,7 @@
 ;; Maintainer: Eshel Yaron <~eshel/kubed-devel@lists.sr.ht>
 ;; Keywords: tools kubernetes containers
 ;; URL: https://eshelyaron.com
-;; Package-Version: 0.1.0
+;; Package-Version: 0.2.0
 ;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:

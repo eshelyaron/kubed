@@ -10,6 +10,26 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.1.0 on 2024-08-01
+* Version 0.2.0 on 2024-08-02
+
+** Ensure compatibility with Emacs 29.
+
+** Add right-click context menus in resource tables.
+
+** New menu-bar "Kubernetes" menu
+
+** New commands for restarting and watching deployments.
+
+** Add filtering capability to all resource tables.
+
+** New cron job commands: suspend, resume, and start job now.
+
+** New commands for patching resources.
+
+** New useful columns in services table and deployments table.
+
+** Use multi-column layout in transient menus.
+
+* Version 0.1.0 on 2024-07-28
 
 Initial release.
