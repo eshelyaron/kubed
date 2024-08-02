@@ -328,12 +328,44 @@ atomic FILTER (= Name foobar)."
   (interactive "" kubed-list-mode)
   (tabulated-list-put-tag " " t))
 
+(defun kubed-list-previous-column (&optional n)
+  "Move backward N columns.
+
+Interactively, N is the numeric value of the prefix argument, defaulting
+to 1."
+  (interactive "p" kubed-list-mode)
+  (kubed-list-next-column (- n)))
+
+(defun kubed-list-next-column (&optional n)
+  "Move forward N columns.
+
+Interactively, N is the numeric value of the prefix argument, defaulting
+to 1."
+  (interactive "p" kubed-list-mode)
+  (let ((next (point))
+        (times (abs (or n 1)))
+        (dir-fn (if (< 0 n)
+                    #'next-single-property-change
+                  #'previous-single-property-change)))
+    (dotimes (_ times)
+      (setq next (funcall dir-fn next 'tabulated-list-column-name))
+      (when (= (char-after next) ?\n)
+        ;; At line boundary, go to first/last column of next line.
+        (setq next (funcall dir-fn next 'tabulated-list-column-name)))
+      (unless next (user-error "End of table")))
+    (goto-char next)))
+
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
   "/" #'kubed-list-set-filter
   "A" #'kubed-all-namespaces-mode
   "d" #'kubed-list-mark-for-deletion
-  "u" #'kubed-list-unmark)
+  "u" #'kubed-list-unmark
+  "C-i" #'kubed-list-next-column
+  "TAB" #'kubed-list-next-column
+  "C-S-i" #'kubed-list-previous-column
+  "S-TAB" #'kubed-list-previous-column
+  "<backtab>" #'kubed-list-previous-column)
 
 (define-derived-mode kubed-list-mode tabulated-list-mode "Kubernetes Resources"
   "Major mode for listing Kubernetes resources.
