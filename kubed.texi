@@ -206,7 +206,8 @@ The common parent major mode is @code{kubed-list-mode}:
 Major mode for listing generic Kubernetes resources.
 @end deffn
 
-This provides several commands for all type-specific derived modes:
+This mode provides the following commands for all type-specific
+derived modes:
 
 @table @kbd
 @kindex /
