@@ -166,6 +166,59 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
        (cons 'resource kubed-display-resource-info))
       (bookmark-make-record-default t)))))
 
+(defun kubed-display-resource-jump-to-list ()
+  "Jump to line in resources list that corresponds to the displayed resource."
+  (interactive)
+  (seq-let (type name context namespace) kubed-display-resource-info
+    (let* ((list-fn (intern (concat "kubed-list-" type)))
+           (pos nil)
+           (find-fn (lambda ()
+                      (save-excursion
+                        ;; TODO: Wait for refresh to finish if underway.
+                        (goto-char (point-min))
+                        (while (not (or pos (eobp)))
+                          (let ((ent (tabulated-list-get-entry)))
+                            (if (equal name (aref ent 0))
+                                (setq pos (point))
+                              (forward-line))))))))
+      (if (equal context (kubed-current-context))
+          (if namespace
+              (cond
+               (kubed-all-namespaces-mode
+                (funcall list-fn)
+                (save-excursion
+                  (goto-char (point-min))
+                  (while (not (or pos (eobp)))
+                    (let ((ent (tabulated-list-get-entry)))
+                      (if (and (equal name      (aref ent 0))
+                               (equal namespace (aref ent 1)))
+                          (setq pos (point))
+                        (forward-line))))))
+               ((equal namespace (kubed-current-namespace))
+                (funcall list-fn)
+                (funcall find-fn))
+               (t (user-error "Resource not in current namespace")))
+            ;; Non-namespaced.
+            (funcall list-fn)
+            (funcall find-fn))
+        (user-error "Resource not in current context"))
+      (when pos (goto-char pos)))))
+
+(defun kubed-display-resource-p (_symbol buffer)
+  "Return non-nil if `kubed-display-resource-mode' is enabled in BUFFER.
+
+The first argument, SYMBOL, is ignored.  You can use this function as
+the `completion-predicate' property of commands that you define that
+should only be available in buffers that display Kuberenetes resources."
+  (buffer-local-value 'kubed-display-resource-mode buffer))
+
+(put 'kubed-display-resource-jump-to-list 'completion-predicate
+     #'kubed-display-resource-p)
+
+(defvar-keymap kubed-display-resource-mode-map
+  :doc "Keymap buffers that display Kubernetes resource."
+  "C-c C-j" #'kubed-display-resource-jump-to-list)
+
 (define-minor-mode kubed-display-resource-mode
   "Minor mode for buffers that display a Kuberenetes resource."
   :interactive nil
