@@ -231,6 +231,11 @@ Unmark from resource at point (@code{kubed-list-unmark}).
 Toggle @code{kubed-all-namespaces-mode}.  When enabled, resource lists
 for namespaced resource types show resources from all namespaces, not
 just the current namespace.
+@kindex w
+@findex kubed-list-copy-as-kill
+@item w
+Copy name of resource at point into the kill ring
+(@code{kubed-list-copy-as-kill}).
 @kindex n
 @findex next-line
 @item n

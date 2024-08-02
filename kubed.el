@@ -369,7 +369,7 @@ to 1."
     (goto-char next)))
 
 (defun kubed-list-copy-as-kill (click)
-  "Copy name of Kubernetes resource at CLICK to into the kill ring."
+  "Copy name of Kubernetes resource at CLICK into the kill ring."
   (interactive (list last-nonmenu-event) kubed-list-mode)
   (if-let ((ent (tabulated-list-get-entry (mouse-set-point click)))
            (new (aref ent 0)))
@@ -377,6 +377,13 @@ to 1."
         (kill-new new)
         (message "Copied resource name `%s'" new))
     (user-error "No Kubernetes resource at point")))
+
+(defun kubed-list-context-menu (menu click)
+  "Extend MENU with common actions on Kubernetes resource at CLICK."
+  (when (tabulated-list-get-entry (posn-point (event-start click)))
+    (define-key menu [kubed-list-copy-as-kill]
+                '(menu-item "Copy name" kubed-list-copy-as-kill)))
+  menu)
 
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
@@ -413,11 +420,13 @@ mode as their parent."
                   (save-excursion
                     (goto-char (point-min))
                     (while (not (eobp))
-                      (when-let ((mark (alist-get (tabulated-list-get-id) marks nil nil #'equal)))
+                      (when-let ((mark (alist-get (tabulated-list-get-id)
+                                                  marks nil nil #'equal)))
                         (tabulated-list-put-tag mark))
                       (forward-line))))))
             nil t)
-  (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow)))
+  (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow))
+  (add-hook 'context-menu-functions #'kubed-list-context-menu nil t))
 
 ;;;###autoload
 (defmacro kubed-define-resource (resource &optional properties &rest commands)
