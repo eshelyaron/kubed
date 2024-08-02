@@ -294,6 +294,15 @@ example, the filter @samp{= Name foobar} keeps only resources whose
 name is @samp{foobar}.  To include whitespace in @var{val}, wrap
 @var{val} in double quotes: @samp{= Name "foo bar"}.
 
+The possible values of @var{op} and their meanings are defined in
+@code{kubed-list-filter-operator-alist}, which is a user option you
+can use to add or change the meaning of filter operators:
+
+@defopt kubed-list-filter-operator-alist
+Association list of filter operators and corresponding Emacs Lisp
+functions.  See the documentation string of this option for specifics.
+@end defopt
+
 You can use more refined filters by composing simple filters.  To add
 another filter that resources must satisfy, wrap your two filters in
 parentheses and put them next to each other:
