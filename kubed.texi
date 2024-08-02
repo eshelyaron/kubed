@@ -286,12 +286,12 @@ is a comparison operator, either @samp{=} or @samp{~}, @var{col} is a
 column name, and @var{val} is a value to compare to values of
 @var{col} with @var{op}.
 
-If @var{op} is @samp{=}, it says to keep only lines whose @code{col}
+If @var{op} is @samp{=}, it says to keep only lines whose @var{col}
 equals @var{val}.  If @var{op} is @samp{~}, it says to keep lines
-whose @code{col} matches the @var{val} as a regular expression.  For
+whose @var{col} matches the @var{val} as a regular expression.  For
 example, the filter @samp{= Name foobar} keeps only resources whose
 name is @samp{foobar}.  To include whitespace in @var{val}, wrap
-@var{val} in double quotes, like so: @samp{= Name "foo bar"}.
+@var{val} in double quotes: @samp{= Name "foo bar"}.
 
 You can use more refined filters by composing simple filters.  To add
 another filter that resources must satisfy, wrap your two filters in
