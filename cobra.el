@@ -128,7 +128,7 @@ Perform completion action A on string S with predicate P."
 
 Optional argument HIST is the name of the history list variable to use,
 if it is nil or omitted, it defaults to `shell-command-history'."
-  (let ((exec (car (split-string-and-unquote initial))))
+  (let ((exec (car (split-string-and-unquote (car (ensure-list initial))))))
     (minibuffer-with-setup-hook
         (:append (lambda ()
                    (let ((map (make-sparse-keymap)))
