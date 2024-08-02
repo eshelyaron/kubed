@@ -93,6 +93,19 @@ obtaining new information from Kuberenetes clusters.")
   (message "Kubed \"all namespaces\" mode is now %s"
            (if kubed-all-namespaces-mode "ON" "OFF")))
 
+(defcustom kubed-list-filter-operator-alist
+  '((= . string=)
+    (~ . string-match-p))
+  "Association list of filter operators and functions that implement them.
+
+Element of this list are cons cells (OP . FN), where OP is a symbol that
+is used as a filter operator and FN is a function that implements OP.
+FN takes two arguments, a string STR and a parameter VAL.  FN should
+return non-nil if STR and VAL are related according to OP: to determine
+if a line in which column COL is STR satisfies the filter (OP COL VAL),
+Kubed checks if the form (FN STR VAL) evaluates to non-nil."
+  :type '(alist :key-type (symbol :tag "Operator") :value-type function))
+
 (defun kubed-list-interpret-atomic-filter (atom)
   "Return function that implements atomic filter ATOM."
   (if (eq (car-safe atom) 'quote)
@@ -101,10 +114,8 @@ obtaining new information from Kuberenetes clusters.")
     (let* ((column-number (tabulated-list--column-number (symbol-name (nth 1 atom))))
            (value (nth 2 atom))
            (value (if (stringp value) value (prin1-to-string value)))
-           (op (cond
-                ((eq (car atom) '=) #'string=)
-                ((eq (car atom) '~) #'string-match-p)
-                (t (user-error "Unknown filter operator `%S'" (car atom))))))
+           (op (alist-get (car atom) kubed-list-filter-operator-alist)))
+      (unless op (user-error "Unknown filter operator `%S'" (car atom)))
       (lambda (x) (funcall op value (aref (cadr x) column-number))))))
 
 (defvar-local kubed-list-filter nil "Filter in effect in the current buffer.")
@@ -153,10 +164,10 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
              (format (substitute-quotes
                       "Invalid atomic filter `%S', must have three elements")
                      atom)))
-    (unless (memq (car atom) '(= ~))
+    (unless (assq (car atom) kubed-list-filter-operator-alist)
       (throw 'validation-error
              (format (substitute-quotes
-                      "Invalid filter operator `%S', must be one of `=', `~'")
+                      "No operator `%S' in `kubed-list-filter-operator-alist'")
                      (car atom))))
     (unless (ignore-errors
               (tabulated-list--column-number (symbol-name (nth 1 atom))))
@@ -251,7 +262,9 @@ of the error, push a mark before moving point."
                                   (argi (cadr fn-argi)))
                          (if (= argi 0)
                              ;; Complete operators.
-                             (list (car bounds) (cdr bounds) '("=" "~"))
+                             (list
+                              (car bounds) (cdr bounds)
+                              (mapcar #'car kubed-list-filter-operator-alist))
                            (when (car fn-argi)
                              (cond
                               ((= argi 1)
@@ -281,16 +294,14 @@ of the error, push a mark before moving point."
   "Set the filter of the current buffer to FILTER.
 
 FILTER determines which resources to keep.  FILTER can be an atomic
-filter, which is a list (OP COL VAL), where OP is one of the symbols
-\\+`=' and `~', COL is a symbol whose name is a column name, and VAL is
-a string or an object whose printed representation is compared to the
-value of the column COL according to OP.  If OP is \\+`=' it says to
-compare with `string=', if OP is `~' it says to use `string-match-p'.
-For example, the atomic filter (= Name foobar) keeps only resources
+filter, which is a list (OP COL VAL), where OP is an operator defined in
+`kubed-list-filter-operator-alist' (which see), COL is a symbol whose
+name is a column name, and VAL is a string or an object whose printed
+representation is compared to the value of the column COL according to
+OP.  For example, the atomic filter (= Name foobar) keeps only resources
 whose name is \"foobar\".  (= Name \"foobar\") does exactly the same.
-You can also negate an atomic filter by quoting it, for instance
-\\='(~ Namespace kube) filters out all resources in namespaces that
-include \"kube\" as a substring.
+To negate an atomic filter, quote it.  E.g. use \\='(~ Namespace kube)
+to hide all resources in namespaces whose name contains \"kube\".
 
 FILTER can also be a list of sub-filters (SUB1 SUB2 ...) where each
 sub-filter is either an atomic filter or a list of atomic filters.  If a
@@ -311,7 +322,9 @@ More examples:
 
 Interactively, prompt for FILTER sans the outermost set of parenthesis.
 For example, enter \"= Name foobar\" in the minibuffer to specify the
-atomic FILTER (= Name foobar)."
+atomic FILTER (= Name foobar).
+
+See also Info node \"(kubed) List Filter\"."
   (interactive (list (kubed-list-read-filter "Set filter")) kubed-list-mode)
   (when-let ((validation-error (kubed-list-validate-filter filter)))
     (user-error validation-error))
