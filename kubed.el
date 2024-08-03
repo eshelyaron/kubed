@@ -125,6 +125,43 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
       (kubed-display-resource-mode)
       (current-buffer))))
 
+(defun kubed-display-resource-short-description
+    (type resource context namespace)
+  (concat type "/" resource
+          (when namespace (concat "@" namespace))
+          (when context   (concat "[" context "]"))))
+
+(defun kubed-namespaced-p (type)
+  "Return non-nil if TYPE is a namespaced Kubernetes resource type."
+  (member type (kubed-api-resources t)))
+
+;;;###autoload
+(defun kubed-display-resource
+    (type resource context namespace)
+  "Display Kubernetes RESOURCE of type TYPE in BUFFER."
+  (interactive
+   (let* ((type (kubed-read-resource-type "Resource type to display"))
+          (namespace
+           (when (kubed-namespaced-p type)
+             (or (seq-some
+                  (lambda (arg)
+                    (when (string-match "--namespace=\\(.+\\)" arg)
+                      (match-string 1 arg)))
+                  (kubed-transient-args 'kubed-transient-display))
+                 (let ((cur (kubed-current-namespace)))
+                   (if current-prefix-arg
+                       (kubed-read-namespace "Namespace" cur)
+                     cur))))))
+     (list type (kubed-read-resource-name type "Display" nil namespace)
+           (kubed-current-context) namespace)))
+  (display-buffer
+   (kubed-display-resource-in-buffer
+    (concat "*Kubed "
+            (kubed-display-resource-short-description
+             type resource context namespace)
+            "*")
+    type resource context namespace)))
+
 (declare-function bookmark-prop-get                 "bookmark")
 (declare-function bookmark-get-front-context-string "bookmark")
 (declare-function bookmark-get-rear-context-string  "bookmark")
@@ -138,9 +175,9 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
       (bookmark-prop-get bookmark 'resource)
     (set-buffer
      (kubed-display-resource-in-buffer
-      (concat "*Kubed " type "/" name
-              (when namespace (concat "@" namespace))
-              (when context (concat "[" context "]"))
+      (concat "*Kubed "
+              (kubed-display-resource-short-description
+               type name context namespace)
               "*")
       type name context namespace))
     (when-let ((str (bookmark-get-front-context-string bookmark))
@@ -157,9 +194,7 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
   (require 'bookmark)
   (seq-let (type name context namespace) kubed-display-resource-info
     (cons
-     (concat type "/" name
-             (when namespace (concat "@" namespace))
-             (when context   (concat "[" context "]")))
+     (kubed-display-resource-short-description type name context namespace)
      (append
       (list
        (cons 'handler #'kubed-display-resource-handle-bookmark)
@@ -974,11 +1009,18 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
        (defun ,dsp-name (,resource . ,(when namespaced '(&optional k8sns)))
          ,(format "Display Kubernetes %S %s."
                   resource (upcase (symbol-name resource)))
-         (interactive ,(if namespaced
-                           `(if kubed-all-namespaces-mode
-                                (,read-nms "Display")
-                              (list (,read-fun "Display")))
-                         `(list (,read-fun "Display"))))
+         (interactive
+          ,(if namespaced
+               `(if kubed-all-namespaces-mode
+                    (,read-nms "Display")
+                  (list (,read-fun "Display" nil nil
+                                   ;; Consult transient for --namespace.
+                                   (seq-some
+                                    (lambda (arg)
+                                      (when (string-match "--namespace=\\(.+\\)" arg)
+                                        (match-string 1 arg)))
+                                    (kubed-transient-args 'kubed-transient-display)))))
+             `(list (,read-fun "Display"))))
          (display-buffer (,desc-fun ,resource . ,(when namespaced '(k8sns)))))
 
        (add-hook 'kubed-update-hook #',updt-cmd)
@@ -1333,7 +1375,7 @@ Optional argument DEFAULT is the minibuffer default argument." resource)
          "+" #',crt-name
          "e" #',edt-name
          "d" #',dlt-name
-         "g" #',dsp-name
+         "RET" #',dsp-name
          "u" #',updt-cmd
          "E" #',expl-cmd
          ,@(mapcan
@@ -2512,14 +2554,19 @@ Interactively, prompt for TYPE, NAME and PATCH."
 (defvar kubed-resource-field-history nil
   "Minibuffer history for `kubed-read-resource-field'.")
 
-(defun kubed-api-resources ()
-  "Return list of resource types in the current Kubernetes context."
+(defun kubed-api-resources (&optional only-namespaced)
+  "Return list of resource types in the current Kubernetes context.
+
+Non-nil optional argument ONLY-NAMESPACED says to return only namespaced
+resource types."
   (mapcar
    (lambda (line)
      (car (split-string line)))
-   (process-lines
-    kubed-kubectl-program
-    "api-resources" "--no-headers")))
+   (apply #'process-lines
+          kubed-kubectl-program
+          "api-resources" "--no-headers"
+          (when only-namespaced
+            '("--namespaced=true")))))
 
 (defun kubed-resource-names (type &optional namespace)
   "Return list of Kuberenetes resource names of type TYPE in NAMESPACE."
@@ -2675,6 +2722,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "=" #'kubed-diff
   "E" #'kubed-explain
   "P" #'kubed-patch
+  "RET" #'kubed-display-resource
   "!" #'kubed-kubectl-command)
 
 (defvar-keymap kubed-menu-map
@@ -2701,7 +2749,8 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "<use-context>"      '("Set Current Context"   . kubed-use-context)
   "<run>"              '("Run Image"             . kubed-run)
   "<apply>"            '("Apply Config"          . kubed-apply)
-  "<create>"           '("Create Resource"       . kubed-create))
+  "<create>"           '("Create Resource"       . kubed-create)
+  "<display>"          '("Display Resource"      . kubed-display-resource))
 
 ;;;###autoload
 (define-minor-mode kubed-menu-bar-mode

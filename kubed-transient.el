@@ -40,16 +40,20 @@
   "Perform Kubernetes operation."
   ["Kubernetes"
    ;; First column.
-   [("+" "Create"  kubed-transient-create)
-    ("*" "Apply"   kubed-transient-apply)
-    ("r" "Run"     kubed-transient-run)
-    ("a" "Attach"  kubed-transient-attach)
-    ("d" "Diff"    kubed-transient-diff)]
+   [ :pad-keys t
+     ("RET" "Display" kubed-transient-display)
+     ("+" "Create"  kubed-transient-create)
+     ("*" "Apply"   kubed-transient-apply)
+     ("E" "Explain" kubed-explain)]
    ;; Second column.
-   [("X" "Exec"    kubed-transient-exec)
+   [("r" "Run"     kubed-transient-run)
+    ("a" "Attach"  kubed-transient-attach)
+    ("X" "Exec"    kubed-transient-exec)
+    ("R" "Rollout" kubed-transient-rollout)]
+   ;; Third column.
+   [("d" "Diff"    kubed-transient-diff)
     ("P" "Patch"   kubed-transient-patch)
     ("R" "Rollout" kubed-transient-rollout)
-    ("E" "Explain" kubed-explain)
     ("!" "Command line" kubed-kubectl-command)]])
 
 ;;;###autoload
@@ -200,6 +204,30 @@
   (interactive)
   (transient-setup 'kubed-transient-create nil nil
                    :scope '("create")))
+
+;;;###autoload
+(transient-define-prefix kubed-transient-display ()
+  "Display Kubernetes resource."
+  ["Kubernetes Display\n"
+   ["Kinds"
+    ("p" "Pod" kubed-display-pod)
+    ("d" "Deployment" kubed-display-deployment)
+    ("j" "Job" kubed-display-job)
+    ("c" "CronJob" kubed-display-cronjob)
+    ("s" "Service" kubed-display-service)]
+   ["More"
+    :pad-keys t
+    ("S" "Secret" kubed-display-secret)
+    ("N" "Namespace" kubed-display-namespace)
+    ("i" "Ingress" kubed-display-ingress)
+    ("RET" "Any" kubed-display-resource)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-n" "Namespace" "--namespace="
+     :prompt "Namespace" :reader kubed-transient-read-namespace)]]
+  (interactive)
+  (transient-setup 'kubed-transient-display nil nil
+                   :scope '("get")))
 
 ;;;###autoload
 (transient-define-prefix kubed-transient-create-cronjob ()
