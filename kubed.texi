@@ -152,6 +152,7 @@ the menu-bar @samp{Kubernetes} menu---to add this menu to your
 menu-bar, enable the global minor mode @code{kubed-menu-bar-mode}:
 
 @deffn {Minor Mode} kubed-menu-bar-mode
+@anchor{Definition of kubed-menu-bar-mode}
 Add @samp{Kubernetes} menu to your menu bar.
 @end deffn
 
@@ -169,16 +170,99 @@ interactive guidance for invoking Kubed commands.
 The following sections describe in detail the various Kubed commands.
 
 @menu
-* Common Commands::
-* Browsing Resources::
+* Display Resource::
+* Browse Resources::
 * Transient Menus::
 @end menu
 
-@node Common Commands
-@section Common Commands
+@node Display Resource
+@section Display Resource
 
-@node Browsing Resources
-@section Browsing Resources
+You can view the YAML description of any resource in your Kubernetes
+cluster.  In Kubed, this is referred to as @dfn{displaying} the given
+resource.  The following commands display a Kubernetes resource:
+
+@deffn Command kubed-display-resource
+Display a Kubernetes resource.
+@end deffn
+
+@deffn Command kubed-display-pod
+@deffnx Command kubed-display-deployment
+@deffnx Command kubed-display-namespace
+@deffnx Command kubed-display-@var{foo}
+Display Kubernetes resource of a given type.
+@end deffn
+
+Command @code{kubed-display-resource} can display any Kubernetes
+resource.  It prompts you to select a resource type and a resource
+name, and displays that resource in a dedicated buffer.  By default,
+this command assumes you want to display a resource that is in the
+current namespace, but if you invoke @code{kubed-display-resource}
+with a prefix argument (@kbd{C-u}) and choose a namespaced resource
+type, then it also lets you select the namespace of the resource.
+
+If you have @code{kubed-prefix-map} bound to @kbd{C-c k}, you can
+invoke @code{kubed-display-resource} with @kbd{C-c k @key{RET}}.  This
+command is also available from the menu-bar ``Kubernetes'' menu
+(@pxref{Definition of kubed-menu-bar-mode}), and from the transient
+``Kubernetes Display'' menu (@pxref{Transient Menus}).
+
+You can also display the resource at point in resources list buffers
+by simply typing @kbd{@key{RET}}.  @xref{Browse Resources}.
+
+Kubed also provides a dedicated @code{kubed-display-@var{foo}} command
+for each supported resource type @var{foo}.  These commands are just
+like @code{kubed-display-resource}, except that they do not prompt you
+for a type, since they are type-specific.  For example,
+@code{kubed-display-pod} only prompts you for a pod name, and then
+displays it like @code{kubed-display-resource} does.
+
+You can invoke these commands by adding a type-specific key before
+@kbd{@key{RET}} in @kbd{C-c k @key{RET}}: @kbd{C-c k p @key{RET}}
+invokes @code{kubed-display-pod}, @kbd{C-c k d @key{RET}} invokes
+@code{kubed-display-deployment}, and so on.
+
+When Kubed prepares a buffer for displaying a resource, it runs the
+hook @code{kubed-yaml-setup-hook} right after populating the buffer
+with the YAML description of the resource:
+
+@defopt kubed-yaml-setup-hook
+List of functions to call, in order, to prepare YAML buffers.  The
+first function on this hook is normally the major mode you want to use
+for YAML buffers that display Kubernetes resources.  By default, this
+is the list @code{(yaml-ts-mode view-mode)}.
+@end defopt
+
+In addition, Kubed enables a bespoke minor mode
+@code{kubed-display-resource-mode} in buffers that display Kubernetes
+resources:
+
+@deffn {Minor Mode} kubed-display-resource-mode
+Minor mode for buffers that display a Kubernetes resource.
+@end deffn
+
+@noindent
+This minor mode does the following:
+
+@itemize
+@item
+It shows the word @samp{Kubed} in the mode line, so you know you're
+seeing a rendered Kubernetes resource, rather than any old YAML file.
+@item
+It allows you to @emph{bookmark} the resource your viewing and your
+position in its YAML description with the regular Emacs bookmarks
+commands (@pxref{Bookmarks,,,emacs}), namely @kbd{C-x r m}.
+@item
+@kindex C-c C-j
+@findex kubed-display-resource-jump-to-list
+It binds the key sequence @kbd{C-c C-j} to command
+@code{kubed-display-resource-jump-to-list}, which pops up the
+resources list buffer for the type of the displayed resource, and
+takes you to the line corresponding to it.
+@end itemize
+
+@node Browse Resources
+@section Browse Resources
 
 Kubed gives you an interactive list of resources for each type, that
 you access with the @code{kubed-list-@var{resource}s} commands, such
