@@ -35,7 +35,7 @@
   "Read and return Kubernetes resource definition file name."
   (kubed-read-resource-definition-file-name))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient "kubed-transient" nil t)
 (transient-define-prefix kubed-transient ()
   "Perform Kubernetes operation."
   ["Kubernetes"
@@ -56,7 +56,7 @@
     ("R" "Rollout" kubed-transient-rollout)
     ("!" "Command line" kubed-kubectl-command)]])
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-rollout "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-rollout ()
   "Manage Kubernetes deployments."
   ["Kubernetes Rollout\n"
@@ -71,7 +71,7 @@
   (transient-setup 'kubed-transient-rollout nil nil
                    :scope '("rollout")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-attach "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-attach ()
   "Attach to running process in container in Kubernetes pod."
   ["Kubernetes Attach\n"
@@ -89,7 +89,7 @@
                    :value '("--stdin" "--tty")
                    :scope '("attach")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-diff "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-diff ()
   "Display difference between Kubernetes resource definition and current state."
   ["Kubernetes Diff\n"
@@ -105,7 +105,7 @@
   (transient-setup 'kubed-transient-diff nil nil
                    :scope '("diff")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-exec "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-exec ()
   "Execute command in Kubernetes pod."
   ["Kubernetes Exec\n"
@@ -125,7 +125,7 @@
                    :value '("--stdin" "--tty")
                    :scope '("exec")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-run "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-run ()
   "Run container image in a Kubernetes pod."
   ["Kubernetes Run\n"
@@ -154,7 +154,7 @@
   (transient-setup 'kubed-transient-run nil nil
                    :scope '("run")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-apply "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-apply ()
   "Apply configuration to Kubernetes resource."
   ["Kubernetes Apply\n"
@@ -168,7 +168,7 @@
   (transient-setup 'kubed-transient-apply nil nil
                    :scope '("apply")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-patch "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-patch ()
   "Apply patch to Kubernetes resource."
   ["Kubernetes Patch\n"
@@ -185,7 +185,7 @@
   (transient-setup 'kubed-transient-patch nil nil
                    :scope '("patch")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-create "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create ()
   "Create Kubernetes resource."
   ["Kubernetes Create\n"
@@ -205,7 +205,7 @@
   (transient-setup 'kubed-transient-create nil nil
                    :scope '("create")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-display "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-display ()
   "Display Kubernetes resource."
   ["Kubernetes Display\n"
@@ -229,7 +229,7 @@
   (transient-setup 'kubed-transient-display nil nil
                    :scope '("get")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-create-cronjob "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create-cronjob ()
   "Create Kubernetes cronjob."
   ["Kubernetes Create CronJob\n"
@@ -249,7 +249,7 @@
   (transient-setup 'kubed-transient-create-cronjob nil nil
                    :scope '("create" "cronjob")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-create-ingress "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create-ingress ()
   "Create Kubernetes ingress."
   ["Kubernetes Create Ingress\n"
@@ -273,7 +273,7 @@
   (transient-setup 'kubed-transient-create-ingress nil nil
                    :scope '("create" "ingress")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-create-deployment "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create-deployment ()
   "Create Kubernetes deployment."
   ["Kubernetes Create Deployment\n"
@@ -296,7 +296,7 @@
   (transient-setup 'kubed-transient-create-deployment nil nil
                    :scope '("create" "deployment")))
 
-;;;###autoload
+;;;###autoload (autoload 'kubed-transient-create-job "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create-job ()
   "Create Kubernetes job."
   ["Kubernetes Create Job\n"
