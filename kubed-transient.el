@@ -196,11 +196,11 @@
     ("-f" "Definition file" "--filename="
      :reader kubed-transient-read-resource-definition-file-name)]
    ["Kinds"
-    ("d" "deployment" kubed-transient-create-deployment)
-    ("n" "namespace" kubed-create-namespace)
-    ("c" "cronjob" kubed-transient-create-cronjob)
-    ("j" "job" kubed-transient-create-job)
-    ("i" "ingress" kubed-transient-create-ingress)]]
+    ("d" "Deployment" kubed-transient-create-deployment)
+    ("n" "Namespace" kubed-create-namespace)
+    ("c" "CronJob" kubed-transient-create-cronjob)
+    ("j" "Job" kubed-transient-create-job)
+    ("i" "Ingress" kubed-transient-create-ingress)]]
   (interactive)
   (transient-setup 'kubed-transient-create nil nil
                    :scope '("create")))

@@ -309,12 +309,6 @@ have a @samp{D} in the beginning of their line.
 @findex kubed-list-unmark
 @item u
 Unmark from resource at point (@code{kubed-list-unmark}).
-@kindex A
-@findex kubed-all-namespaces-mode
-@item A
-Toggle @code{kubed-all-namespaces-mode}.  When enabled, resource lists
-for namespaced resource types show resources from all namespaces, not
-just the current namespace.
 @kindex w
 @findex kubed-list-copy-as-kill
 @item w
@@ -469,8 +463,6 @@ This line defines the following commands for you:
 @code{kubed-delete-serviceaccount}
 @item
 @code{kubed-create-serviceaccount}
-@item
-@code{kubed-update-serviceaccounts}
 @item
 @code{kubed-explain-serviceaccounts}
 @end itemize
