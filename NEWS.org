@@ -10,6 +10,22 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.3.0 on 2024-08-05
+
+** New command for copying name of resource at point to kill ring.
+
+** New commands for running ~kubectl~ command on resource at point.
+
+** Support bookmarking resource list and resource details buffers.
+
+** New command for jumping from resource details buffer to list buffer.
+
+** Fix installation on Doom Emacs
+
+** New transient menu for displaying resources.
+
+** Support multiple resource list buffers with different namespaces or contexts.
+
 * Version 0.2.0 on 2024-08-02
 
 ** Ensure compatibility with Emacs 29.
