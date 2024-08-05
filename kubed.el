@@ -83,7 +83,7 @@ by default it is `yaml-ts-mode'."
                     nil nil #'equal)
          ,value))
 
-(eval-and-compile (defvar kubed--columns nil))
+(defvar kubed--columns nil)
 
 (defun kubed-update (type context &optional namespace)
   "Update list of resources of type TYPE in CONTEXT and NAMESPACE."
@@ -999,17 +999,18 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
           dlt-name (intern (format "kubed-delete-%S"        plrl-var))
           mod-name (intern (format "kubed-%S-mode"          plrl-var))
           ctxt-fun (intern (format "kubed-%S-context-menu"  plrl-var)))
-
-    (setf (alist-get (symbol-name plrl-var) kubed--columns nil nil #'string=)
-          (cons '("NAME:.metadata.name")
-                (mapcar (lambda (p)
-                          (cons (concat (upcase (symbol-name (car p)))
-                                        ":"
-                                        (cadr p))
-                                (nth 4 p)))
-                        properties)))
     ;; Generate code.
     `(progn
+       (setf (alist-get ,(symbol-name plrl-var) kubed--columns nil nil #'string=)
+             (list
+              '("NAME:.metadata.name")
+              ,@(mapcar (lambda (p)
+                          `(cons ,(concat (upcase (symbol-name (car p)))
+                                          ":"
+                                          (cadr p))
+                                 ,(nth 4 p)))
+                        properties)))
+
        (defvar ,hist-var nil
          ,(format "History list for `%S'." read-fun))
 
