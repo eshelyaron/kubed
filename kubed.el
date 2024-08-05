@@ -265,7 +265,7 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
                ((search-backward str (point-min) t)))
       (goto-char (match-end 0)))))
 
-(put 'kubed-display-resource-handle-bookmark 'bookmark-handler-type "Kubed")
+(put 'kubed-display-resource-handle-bookmark 'bookmark-handler-type "KubedResource")
 
 (defun kubed-display-resource-make-bookmark ()
   "Return bookmark pointing to currently displayed Kubernetes resource."
@@ -284,26 +284,17 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
   (interactive)
   (seq-let (type name context namespace) kubed-display-resource-info
     (let* ((list-fn (intern (concat "kubed-list-" type)))
-           (pos nil)
-           (find-fn (lambda ()
-                      (save-excursion
-                        ;; FIXME: Wait for refresh to end if underway.
-                        (goto-char (point-min))
-                        (while (not (or pos (eobp)))
-                          (let ((ent (tabulated-list-get-entry)))
-                            (if (equal name (aref ent 0))
-                                (setq pos (point))
-                              (forward-line))))))))
+           (pos nil))
       (if (equal context (kubed-current-context))
           (if namespace
               (cond
                ((equal namespace (kubed-current-namespace))
                 (funcall list-fn context namespace)
-                (funcall find-fn))
+                (kubed-list-go-to-line name))
                (t (user-error "Resource not in current namespace")))
             ;; Non-namespaced.
             (funcall list-fn context)
-            (funcall find-fn))
+            (kubed-list-go-to-line name))
         (user-error "Resource not in current context"))
       (when pos (goto-char pos)))))
 
@@ -433,6 +424,27 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 (defvar-local kubed-list-type nil)
 (defvar-local kubed-list-context nil)
 (defvar-local kubed-list-namespace nil)
+
+(defun kubed-list-go-to-line (id)
+  "Go to beginning of table line with ID."
+  (let ((pos nil))
+    (save-excursion
+      ;; Wait for refresh to finish, if currently underway.
+      (while (process-live-p
+              (alist-get 'process (kubed--alist kubed-list-type
+                                                kubed-list-context
+                                                kubed-list-namespace)))
+        (accept-process-output
+         (alist-get 'process (kubed--alist kubed-list-type
+                                           kubed-list-context
+                                           kubed-list-namespace))
+         1))
+      (goto-char (point-min))
+      (while (not (or pos (eobp)))
+        (if (equal id (tabulated-list-get-id))
+            (setq pos (point))
+          (forward-line))))
+    (goto-char pos)))
 
 (defun kubed-list-try-read-filter ()
   "Try to read a resource list filter in the minibuffer.
@@ -798,6 +810,37 @@ regardless of QUIET."
       (when (funcall pred ent) (push ent ents)))
     (reverse ents)))
 
+;;;###autoload
+(defun kubed-list-handle-bookmark (bookmark)
+  "Display Kubernetes resource according to BOOKMARK."
+  (require 'bookmark)
+  (let* ((type (bookmark-prop-get bookmark 'type))
+         (context (bookmark-prop-get bookmark 'context))
+         (namespace (bookmark-prop-get bookmark 'namespace))
+         (current (bookmark-prop-get bookmark 'current))
+         (buff-fn (intern (format "kubed-%s-buffer" type)))
+         (buff (apply buff-fn context (when namespace (list namespace)))))
+    (set-buffer buff)
+    (when current (kubed-list-go-to-line current))))
+
+(put 'kubed-list-handle-bookmark 'bookmark-handler-type "KubedList")
+
+(defun kubed-list-make-bookmark ()
+  "Return bookmark pointing to currently displayed Kubernetes resource."
+  (require 'bookmark)
+  (cons
+   (concat kubed-list-type
+           (when kubed-list-namespace (concat "@" kubed-list-namespace))
+           (when kubed-list-context   (concat "[" kubed-list-context "]")))
+   (append
+    (list
+     (cons 'handler #'kubed-list-handle-bookmark)
+     (cons 'filter kubed-list-filter)
+     (cons 'type kubed-list-type)
+     (cons 'context kubed-list-context)
+     (cons 'current (tabulated-list-get-id))
+     (cons 'namespace kubed-list-namespace)))))
+
 (define-derived-mode kubed-list-mode tabulated-list-mode "Kubernetes Resources"
   "Major mode for listing Kubernetes resources.
 
@@ -826,7 +869,8 @@ mode as their parent."
                       (forward-line))))))
             nil t)
   (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow))
-  (setq tabulated-list-entries #'kubed-list-entries)
+  (setq-local tabulated-list-entries #'kubed-list-entries)
+  (setq-local bookmark-make-record-function #'kubed-list-make-bookmark)
   (add-hook 'context-menu-functions #'kubed-list-context-menu nil t))
 
 (defun kubed-delete-resources (type resources context &optional namespace)
