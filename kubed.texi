@@ -386,6 +386,13 @@ column, move to the last column of the previous line instead
 @findex tabulated-list-sort
 @item S
 Sort lines by the column at point (@code{tabulated-list-sort}).
+@kindex |
+@findex kubed-list-fit-column-width-to-content
+@item |
+Fit width of column at point to its content
+(@code{kubed-list-fit-column-width-to-content}).  With non-negative
+prefix argument @var{n} (for example, @kbd{0 |}), fit @var{n}th
+column.  With negative prefix argument (@kbd{- |}), fit all columns.
 @kindex @{
 @findex tabulated-list-narrow-current-column
 @item @{

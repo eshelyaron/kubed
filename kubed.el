@@ -768,6 +768,65 @@ regardless of QUIET."
               0)))
     (user-error "No Kubernetes resource at point")))
 
+(defun kubed-list-column-number-at-point ()
+  "Return table column number at point."
+  (let ((start (current-column))
+        (nb-cols (1- (length tabulated-list-format)))
+        (col-nb 0)
+        (total-width tabulated-list-padding)
+        (found nil))
+    (while (and (not found) (< col-nb nb-cols))
+      (if (>= start
+              (setq total-width
+                    (+ total-width
+                       (cadr (aref tabulated-list-format col-nb))
+                       (or (plist-get (nthcdr 3 (aref tabulated-list-format
+                                                      col-nb))
+                                      :pad-right)
+                           1))))
+          (setq col-nb (1+ col-nb))
+        (setq found t)))
+    col-nb))
+
+(defun kubed-list-fit-column-width-to-content (n)
+  "Fit width of Nth table column to its content.
+
+If N is negative, fit all columns.  Interactively, N is the column
+number at point, or the numeric prefix argument if you provide one."
+  (interactive
+   (list (if current-prefix-arg
+             (prefix-numeric-value current-prefix-arg)
+           (kubed-list-column-number-at-point)))
+   kubed-list-mode)
+  (if (< n 0)
+      ;; Fit all columns.
+      (let* ((num-cols (length tabulated-list-format))
+             (widths (apply #'vector (seq-map
+                                      ;; +2 to make room for sorting icon.
+                                      (lambda (col) (+ 2 (length (car col))))
+                                      tabulated-list-format))))
+        (save-excursion
+          (goto-char (point-min))
+          (while-let ((entry (tabulated-list-get-entry)))
+            (dotimes (i num-cols)
+              (aset widths i (max (aref widths i) (length (aref entry i)))))
+            (forward-line)))
+        (setq tabulated-list-format (copy-tree tabulated-list-format t))
+        (dotimes (i num-cols)
+          (setf (cadr (aref tabulated-list-format i))
+                (1+ (aref widths i)))))
+    ;; Fit Nth column.
+    (let* ((width (+ 2 (length (car (aref tabulated-list-format n))))))
+      (save-excursion
+        (goto-char (point-min))
+        (while-let ((entry (tabulated-list-get-entry)))
+          (setq width (max width (length (aref entry n))))
+          (forward-line)))
+      (setq tabulated-list-format (copy-tree tabulated-list-format t))
+      (setf (cadr (aref tabulated-list-format n)) (1+ width))))
+  (tabulated-list-print t)
+  (tabulated-list-init-header))
+
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
   "RET" #'kubed-list-select-resource
@@ -780,6 +839,7 @@ regardless of QUIET."
   "!" #'kubed-list-kubectl-command
   "G" #'kubed-list-update
   "/" #'kubed-list-set-filter
+  "|" #'kubed-list-fit-column-width-to-content
   "d" #'kubed-list-mark-for-deletion
   "u" #'kubed-list-unmark
   "w" #'kubed-list-copy-as-kill
