@@ -10,6 +10,12 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.3.1 on 2024-08-06
+
+** New command for fitting column width to content in resource tables.
+
+** New transient menu showing help in resource table buffers.
+
 * Version 0.3.0 on 2024-08-05
 
 ** New command for copying name of resource at point to kill ring.
@@ -20,7 +26,7 @@ For further details, see the Kubed manual:
 
 ** New command for jumping from resource details buffer to list buffer.
 
-** Fix installation on Doom Emacs
+** Fix installation on Doom Emacs.
 
 ** New transient menu for displaying resources.
 
@@ -32,7 +38,7 @@ For further details, see the Kubed manual:
 
 ** Add right-click context menus in resource tables.
 
-** New menu-bar "Kubernetes" menu
+** New menu-bar "Kubernetes" menu.
 
 ** New commands for restarting and watching deployments.
 
