@@ -86,8 +86,10 @@ behavior.
 @chapter Getting Started
 
 @cindex installation
-Use your favorite Emacs package manager to install Kubed from Git.  You
-can clone the Kubed Git repository from any of the following locations:
+
+Get Kubed from GNU ELPA with @kbd{M-x package-install}, or use your
+favorite Emacs package manager to install Kubed from Git.  You can
+clone the Kubed Git repository from any of the following locations:
 
 @itemize
 @item

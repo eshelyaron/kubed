@@ -21,13 +21,17 @@ You can use Kubed to:
 
 # Getting Started
 
-Use your favorite Emacs package manager to install Kubed from Git.  You
-can clone the Kubed Git repository from any of the following locations:
+Get Kubed from GNU ELPA with `M-x package-install`, or use your
+favorite Emacs package manager to install Kubed from Git.  You can
+clone the Kubed Git repository from any of the following locations:
 
 - https://git.sr.ht/~eshel/kubed
 - https://github.com/eshelyaron/kubed.git
 - git://git.eshelyaron.com/kubed.git
 
-To get started with Kubed, all you need is `kubectl` and Emacs.  For
-information about usage and customization, see the Kubed manual in Info
-or online at https://eshelyaron.com/kubed.html
+To get started with Kubed, all you need is `kubectl` and Emacs.  Bind
+`kubed-prefix-map` to a convenient key (e.g. `C-c k` or `M-K`), or use
+`M-x kubed-transient` to explore some of the available commands.
+
+For more information about usage and customization, see the Kubed
+manual in Info or online at https://eshelyaron.com/kubed.html
