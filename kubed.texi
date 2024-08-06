@@ -306,6 +306,10 @@ This mode provides the following commands for all type-specific
 derived modes:
 
 @table @kbd
+@kindex @key{?}
+@findex kubed-list-transient
+@item @key{?}
+Show help in transient menu (@code{kubed-list-transient}).
 @kindex @key{RET}
 @findex kubed-list-select-resource
 @item @key{RET}

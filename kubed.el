@@ -837,6 +837,8 @@ number at point, or the numeric prefix argument if you provide one."
   (tabulated-list-print t)
   (tabulated-list-init-header))
 
+(declare-function kubed-list-transient "kubed-transient" ())
+
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
   "RET" #'kubed-list-select-resource
@@ -858,7 +860,8 @@ number at point, or the numeric prefix argument if you provide one."
   "C-S-i" #'kubed-list-previous-column
   "S-TAB" #'kubed-list-previous-column
   "<backtab>" #'kubed-list-previous-column
-  "+" #'kubed-list-create)
+  "+" #'kubed-list-create
+  "?" #'kubed-list-transient)
 
 (defun kubed-list-entries ()
   "`tabulated-list-entries' function for `kubed-list-mode'."

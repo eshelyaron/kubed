@@ -315,5 +315,37 @@
   (transient-setup 'kubed-transient-create-job nil nil
                    :scope '("create" "job")))
 
+;;;###autoload (autoload 'kubed-list-transient "kubed-transient" nil t)
+(transient-define-prefix kubed-list-transient ()
+  "Help for Kubernetes resource list buffers."
+  ["Kubernetes Resources:"
+   ["Select"
+    :pad-keys t
+    ("RET" "Select" kubed-list-select-resource)
+    ("C-o" "Display" kubed-list-display-resource :transient t)
+    ("e" "Edit" kubed-list-edit :transient t)
+    ("w" "Copy name" kubed-list-copy-as-kill :transient t)]
+   ["Delete"
+    ("D" "Delete" kubed-list-delete :transient t)
+    ("d" "Mark" kubed-list-mark-for-deletion :transient t)
+    ("u" "Unmark" kubed-list-unmark :transient t)
+    ("x" "Delete marked" kubed-list-delete-marked :transient t)]
+   ["Other"
+    ("!" "Command line" kubed-list-kubectl-command :transient t)
+    ("+" "Create" kubed-list-create :transient t)
+    ("/" "Filter" kubed-list-set-filter :transient t)
+    ("G" "Update" kubed-list-update :transient t)]
+   ["Table"
+    ("|" "Fit column" kubed-list-fit-column-width-to-content :transient t)
+    ("}" "Widen column" tabulated-list-widen-current-column :transient t)
+    ("{" "Narrow column" tabulated-list-narrow-current-column :transient t)
+    ("S" "Sort" tabulated-list-sort :transient t)]
+   ["Movement"
+    :pad-keys t
+    ("n" "Next line" next-line :transient t)
+    ("p" "Previous line" previous-line :transient t)
+    ("TAB" "Narrow column" kubed-list-next-column :transient t)
+    ("S-TAB" "Narrow column" kubed-list-previous-column :transient t)]])
+
 (provide 'kubed-transient)
 ;;; kubed-transient.el ends here
