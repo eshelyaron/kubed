@@ -266,23 +266,33 @@ takes you to the line corresponding to it.
 
 Kubed gives you an interactive list of resources for each type, that
 you access with the @code{kubed-list-@var{resource}s} commands, such
-as @code{kubed-list-pods} which shows you the list of Kubernetes pods
-in buffer @file{*kubed-pods*}.
+as @code{kubed-list-pods}.
 
 These commands are bound to @kbd{l} in Kubed's type-specific prefix
 keymaps, most of which are accessible via the global
 @code{kubed-prefix-map} by default (@pxref{Definition of
 kubed-prefix-map}).  So if you've bound @code{kubed-prefix-map} to
 @kbd{C-c k}, you can pop up the pods list with @kbd{C-c k p l}, the
-deployments list with @kbd{C-c k d l}, the namespaces list with
-@kbd{C-c k N l}, etc.
+deployments list with @kbd{C-c k d l}, the jobs list with @w{@kbd{C-c
+k j l}}, etc.  Normally, Kubed shows the list of resources in the
+current namespace, but if you invoke these commands with a prefix
+argument (say, @kbd{C-u C-c k p l}), they first prompt you to select a
+namespace, and then show resources in the namespace you selected.
+
+The list of @var{resource}s in shown a buffer called @w{@file{*Kubed
+@var{resource}s@@@var{namespace}[@var{context}]*}}, where
+@var{context} is a @command{kubectl} context, and @var{namespace} is a
+namespace in @var{context}.  For example, Kubed shows the list of pods
+in namespace @samp{default} for context @samp{minikube} in buffer
+@file{*Kubed pos@@default[minikube]}.  For non-namespaced resources,
+the @w{@samp{@@@var{namespace}}} part is omitted.
 
 Each resource type has its own major mode for list buffers with
 type-specific commands and operations, but they are all also derived
-from a shared parent mode.  The @file{*kubed-pods*} buffer uses the
+from a shared parent mode.  The pods list uses the
 @code{kubed-pods-mode} (@samp{Kubernetes Pods}) major mode, the list
-of Kubernetes deployments in buffer @file{*kubed-deployments*} uses
-@code{kubed-deployments-mode}, and so on.
+of Kubernetes deployments uses @code{kubed-deployments-mode}, and so
+on.
 
 The common parent major mode is @code{kubed-list-mode}:
 
@@ -294,6 +304,38 @@ This mode provides the following commands for all type-specific
 derived modes:
 
 @table @kbd
+@kindex @key{RET}
+@findex kubed-list-select-resource
+@item @key{RET}
+Display the resource at point in the current window
+(@code{kubed-list-select-resource}).
+@kindex o
+@findex kubed-list-select-resource-other-window
+@item o
+Display the resource at point in another window and select that window
+(@code{kubed-list-select-resource-other-window}).
+@kindex C-o
+@findex kubed-list-display-resource
+@item C-o
+Display the resource at point in another window without selecting it
+(@code{kubed-list-display-resource}).
+@kindex D
+@findex kubed-list-delete
+@item D
+Delete the resource at point (@code{kubed-list-delete}).
+@kindex e
+@findex kubed-list-e
+@item e
+Edit the resource at point (@code{kubed-list-edit}).
+@kindex P
+@findex kubed-list-patch
+@item P
+Patch the resource at point (@code{kubed-list-patch}).
+@kindex G
+@findex kubed-list-update
+@item G
+Update the resources list by fetching new information from Kubernetes
+(@code{kubed-list-update}).
 @kindex /
 @findex kubed-list-set-filter
 @item /
@@ -305,6 +347,10 @@ Filter the current list of resources (@code{kubed-list-set-filter}).
 Mark the resource at point for deletion
 (@code{kubed-list-mark-for-deletion}).  Resources marked for deletion
 have a @samp{D} in the beginning of their line.
+@kindex x
+@findex kubed-list-delete-marked
+@item x
+Delete marked resources (@code{kubed-list-delete-marked}).
 @kindex u
 @findex kubed-list-unmark
 @item u
@@ -349,6 +395,9 @@ Narrow the column at point
 Widen the column at point
 (@code{tabulated-list-widen-current-column}).
 @end table
+
+In addition, you can bookmark any Kubed resources list buffer with the
+usual @kbd{C-x r m}.  @xref{Bookmarks,,,emacs}.
 
 @menu
 * List Filter::
@@ -470,9 +519,8 @@ This line defines the following commands for you:
 See the documentation string of @code{kubed-define-resource}
 (@w{@kbd{C-h f}}) for details about the optional arguments of this
 macro: the @var{properties} argument which lets you specify what Kubed
-should show in the resource list buffer (for example,
-@file{*kubed-serviceaccounts*}) and the @code{commands} argument which
-lets you associate additional commands with your resource type.
+should show in the resource list buffer and the @code{commands} argument
+which lets you associate additional commands with your resource type.
 
 @node Contributing
 @chapter Contributing
