@@ -768,6 +768,16 @@ regardless of QUIET."
               0)))
     (user-error "No Kubernetes resource at point")))
 
+(defun kubed-list-create (definition &optional kind)
+  "Create Kubernetes resource of kind KIND from definition file DEFINITION."
+  (interactive (list (kubed-read-resource-definition-file-name)))
+  (kubed-create definition kind
+                ;; This is also called from non-list buffers via
+                ;; `kubed-create-FOO' commands, in which case context is
+                ;; nil, which is means we default to current context.
+                kubed-list-context)
+  (kubed-list-update t))
+
 (defun kubed-list-column-number-at-point ()
   "Return table column number at point."
   (let ((start (current-column))
@@ -847,7 +857,8 @@ number at point, or the numeric prefix argument if you provide one."
   "TAB" #'kubed-list-next-column
   "C-S-i" #'kubed-list-previous-column
   "S-TAB" #'kubed-list-previous-column
-  "<backtab>" #'kubed-list-previous-column)
+  "<backtab>" #'kubed-list-previous-column
+  "+" #'kubed-list-create)
 
 (defun kubed-list-entries ()
   "`tabulated-list-entries' function for `kubed-list-mode'."
@@ -1168,8 +1179,7 @@ of %S, instead of just one." resource plrl-var)
                       (symbol-name resource))
              (interactive (list (kubed-read-resource-definition-file-name
                                  ,(symbol-name resource))))
-             (kubed-create definition ,(symbol-name resource))
-             (kubed-list-update t)))
+             (kubed-list-create definition ,(symbol-name resource))))
 
        ,@(let ((click-var (gensym "click")))
            (mapcar
