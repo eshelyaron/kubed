@@ -283,20 +283,9 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
   "Jump to line in resources list that corresponds to the displayed resource."
   (interactive)
   (seq-let (type name context namespace) kubed-display-resource-info
-    (let* ((list-fn (intern (concat "kubed-list-" type)))
-           (pos nil))
-      (if (equal context (kubed-current-context))
-          (if namespace
-              (cond
-               ((equal namespace (kubed-current-namespace))
-                (funcall list-fn context namespace)
-                (kubed-list-go-to-line name))
-               (t (user-error "Resource not in current namespace")))
-            ;; Non-namespaced.
-            (funcall list-fn context)
-            (kubed-list-go-to-line name))
-        (user-error "Resource not in current context"))
-      (when pos (goto-char pos)))))
+    (apply (intern (concat "kubed-list-" type)) context
+           (when namespace (list namespace)))
+    (kubed-list-go-to-line name)))
 
 (defun kubed-display-resource-p (_symbol buffer)
   "Return non-nil if `kubed-display-resource-mode' is enabled in BUFFER.
