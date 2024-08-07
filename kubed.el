@@ -295,6 +295,30 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
            (when namespace (list namespace)))
     (kubed-list-go-to-line name)))
 
+(defun kubed-display-resource-diff ()
+  "Show diff of current buffer with current state of the displayed resource."
+  (interactive)
+  (kubed-diff (current-buffer) nil (nth 2 kubed-display-resource-info)))
+
+(defun kubed-display-resource-replace ()
+  "Replace displayed Kubernetes resource with current buffer contents."
+  (interactive)
+  (let (choice)
+    (while (= ?d (setq choice
+                       (car (read-multiple-choice
+                             "Replace resource with changes in current buffer?"
+                             '((?y "yes") (?n "no") (?d "diff"))))))
+      (kubed-display-resource-diff))
+    (when (= ?y choice)
+      (let ((err-buf (get-buffer-create " *kubed-replace*")))
+        (with-current-buffer err-buf (erase-buffer))
+        (unless (zerop (call-process-region nil nil kubed-kubectl-program
+                                            nil err-buf nil "replace" "-f" "-"))
+          (display-buffer err-buf)
+          (user-error "`kubectl replace' failed!")))
+      (message "Replaced Kubernetes resource with changes in current buffer.")
+      (revert-buffer))))
+
 (defun kubed-display-resource-p (_symbol buffer)
   "Return non-nil if `kubed-display-resource-mode' is enabled in BUFFER.
 
@@ -303,12 +327,16 @@ the `completion-predicate' property of commands that you define that
 should only be available in buffers that display Kuberenetes resources."
   (buffer-local-value 'kubed-display-resource-mode buffer))
 
-(put 'kubed-display-resource-jump-to-list 'completion-predicate
-     #'kubed-display-resource-p)
+(dolist (cmd '(kubed-display-resource-jump-to-list
+               'kubed-display-resource-diff
+               'kubed-display-resource-replace))
+  (put cmd 'completion-predicate #'kubed-display-resource-p))
 
 (defvar-keymap kubed-display-resource-mode-map
   :doc "Keymap buffers that display Kubernetes resource."
-  "C-c C-j" #'kubed-display-resource-jump-to-list)
+  "C-c C-j" #'kubed-display-resource-jump-to-list
+  "C-c C-=" #'kubed-display-resource-diff
+  "C-c C-c" #'kubed-display-resource-replace)
 
 (define-minor-mode kubed-display-resource-mode
   "Minor mode for buffers that display a Kuberenetes resource."
@@ -1963,7 +1991,7 @@ Optional argument DEFAULT is the minibuffer default argument."
                     (unless (zerop
                              (call-process
                               kubed-kubectl-program nil t nil "config" "view"))
-                      (error "`kubectl config view'"))
+                      (error "`kubectl config view' failed"))
                     (let ((source (current-buffer)))
                       (with-current-buffer target
                         (replace-buffer-contents source)
@@ -2377,6 +2405,9 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
 (defun kubed-diff (definition &optional include-managed context)
   "Display difference between Kubernetes resource DEFINITION and current state.
 
+DEFINITION is either a file name or a buffer.  Interactively, prompt for
+a YAML or JSON file name to use as DEFINITION.
+
 Optional argument CONTEXT is the `kubectl' context to use, defaulting to
 the current context; non-nil INCLUDE-MANAGED (interactively, the prefix
 argument) says to include managed fields in the comparison."
@@ -2394,16 +2425,24 @@ argument) says to include managed fields in the comparison."
      (list (or definition (kubed-read-resource-definition-file-name))
            (or include-managed current-prefix-arg)
            context)))
-  (let ((buf (get-buffer-create "*kubed-diff*")))
+  (let ((buf (get-buffer-create "*kubed-diff*"))
+        (args (cons "diff"
+                    (append
+                     (when context (list "--context" context))
+                     (when include-managed
+                       (list "--show-managed-fields" "true"))
+                     (list "-f" (if (bufferp definition) "-"
+                                  (expand-file-name definition)))))))
     (with-current-buffer buf
       (setq buffer-read-only nil)
       (delete-region (point-min) (point-max))
       (fundamental-mode)
-      (apply #'call-process kubed-kubectl-program nil t nil "diff"
-             (concat "--show-managed-fields="
-                     (if include-managed "true" "false"))
-             "-f" (expand-file-name definition)
-             (when context (list "--context" context)))
+      (if (bufferp definition)
+          (with-current-buffer definition
+            (apply #'call-process-region nil nil kubed-kubectl-program
+                   nil buf nil args))
+        (apply #'call-process kubed-kubectl-program
+               nil t nil args))
       (setq buffer-read-only t)
       (diff-mode)
       (goto-char (point-min)))

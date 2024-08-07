@@ -261,6 +261,31 @@ It binds the key sequence @kbd{C-c C-j} to command
 @code{kubed-display-resource-jump-to-list}, which pops up the
 resources list buffer for the type of the displayed resource, and
 takes you to the line corresponding to it.
+@item
+@kindex C-c C-c
+@findex kubed-display-resource-replace
+@kindex C-c C-=
+@findex kubed-display-resource-diff
+@kindex C-x C-q
+@findex read-only-mode
+It binds @kbd{C-c C-c} to command
+@code{kubed-display-resource-replace}, which lets you apply any
+changes that you make in the YAML buffer back to the resource.  When
+you hit @kbd{C-c C-c}, Kubed asks you for confirmation before
+proceeding; you can reply with @kbd{d} (@samp{diff}) to show a diff
+between the current state of the resource and the current buffer
+contents.  You can also display this diff anytime with @kbd{C-c C-=}.
+Note that by default Kubed displays resources in read-only buffers, so
+you may need to hit @kbd{C-x C-q} (@code{read-only-mode}) before
+making changes in the buffer.
+@item
+@kindex C-x x g
+@findex revert-buffer
+@findex revert-buffer-quick
+It lets you repopulate the buffer with updated information about the
+resource with @kbd{C-x x g} (@code{revert-buffer-quick}) and
+@w{@kbd{M-x revert-buffer}}.  This is also useful if you edit the
+resource and want to restart from a clean slate.
 @end itemize
 
 @node Browse Resources

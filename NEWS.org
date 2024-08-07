@@ -10,6 +10,19 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.3.2 in development
+
+** New filter operators ~<~ and ~>~ in resource tables.
+
+These operators let you filter line with columns that are less than or
+greater than a given value.
+
+** New command for applying changes to displayed resource.
+
+You can now edit displayed resource YAML buffers after you select a
+resource with ~RET~ in the table buffer, and apply your changes to the
+live resource with ~C-c C-c~.
+
 * Version 0.3.1 on 2024-08-06
 
 ** New command for fitting column width to content in resource tables.
