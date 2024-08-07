@@ -328,8 +328,8 @@ should only be available in buffers that display Kuberenetes resources."
   (buffer-local-value 'kubed-display-resource-mode buffer))
 
 (dolist (cmd '(kubed-display-resource-jump-to-list
-               'kubed-display-resource-diff
-               'kubed-display-resource-replace))
+               kubed-display-resource-diff
+               kubed-display-resource-replace))
   (put cmd 'completion-predicate #'kubed-display-resource-p))
 
 (defvar-keymap kubed-display-resource-mode-map
