@@ -330,7 +330,7 @@ should only be available in buffers that display Kuberenetes resources."
     (if (= l r) (string> s v) (> l r))))
 
 (defcustom kubed-list-filter-operator-alist
-  `((= . string=)
+  '((= . string=)
     (~ . string-match-p)
     (< . kubed-list-filter-lt-operator)
     (> . kubed-list-filter-gt-operator))
