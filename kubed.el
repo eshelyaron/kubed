@@ -319,17 +319,29 @@ should only be available in buffers that display Kuberenetes resources."
      revert-buffer-function        #'kubed-display-resource-revert
      bookmark-make-record-function #'kubed-display-resource-make-bookmark)))
 
+(defun kubed-list-filter-lt-operator (v s)
+  "Return non-nil if S is less than V as a number or as a string."
+  (let ((l (string-to-number s)) (r (string-to-number v)))
+    (if (= l r) (string< s v) (< l r))))
+
+(defun kubed-list-filter-gt-operator (v s)
+  "Return non-nil if S is greater than V as a number or as a string."
+  (let ((l (string-to-number s)) (r (string-to-number v)))
+    (if (= l r) (string> s v) (> l r))))
+
 (defcustom kubed-list-filter-operator-alist
-  '((= . string=)
-    (~ . string-match-p))
+  `((= . string=)
+    (~ . string-match-p)
+    (< . kubed-list-filter-lt-operator)
+    (> . kubed-list-filter-gt-operator))
   "Association list of filter operators and functions that implement them.
 
-Element of this list are cons cells (OP . FN), where OP is a symbol that
+Elements of the list are cons cells (OP . FN), where OP is a symbol that
 is used as a filter operator and FN is a function that implements OP.
 FN takes two arguments, a string STR and a parameter VAL.  FN should
 return non-nil if STR and VAL are related according to OP: to determine
 if a line in which column COL is STR satisfies the filter (OP COL VAL),
-Kubed checks if the form (FN STR VAL) evaluates to non-nil."
+Kubed checks if the form (FN VAL STR) evaluates to non-nil."
   :type '(alist :key-type (symbol :tag "Operator") :value-type function))
 
 (defun kubed-list-interpret-atomic-filter (atom)

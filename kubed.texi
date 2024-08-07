@@ -428,13 +428,14 @@ conditions are hidden, so you can focus on those that do.
 Filters can be simple (@dfn{atomic filters}) or complex (@dfn{composed
 filters}).  In the simple case, you enter a filter in the minibuffer
 in the format @w{@samp{@var{op} @var{col} @var{val}}}, where @var{op}
-is a comparison operator, either @samp{=} or @samp{~}, @var{col} is a
-column name, and @var{val} is a value to compare to values of
-@var{col} with @var{op}.
+is a comparison operator, one of @samp{=}, @samp{~}, @samp{<} and
+@samp{>}; @var{col} is a column name; and @var{val} is a value to
+compare to values of @var{col} with @var{op}.
 
 If @var{op} is @samp{=}, it says to keep only lines whose @var{col}
 equals @var{val}.  If @var{op} is @samp{~}, it says to keep lines
-whose @var{col} matches the @var{val} as a regular expression.  For
+whose @var{col} matches the @var{val} as a regular expression.
+@samp{<} and @samp{>} compare column values to numeric values.  For
 example, the filter @samp{= Name foobar} keeps only resources whose
 name is @samp{foobar}.  To include whitespace in @var{val}, wrap
 @var{val} in double quotes: @samp{= Name "foo bar"}.
