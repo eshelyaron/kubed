@@ -344,8 +344,8 @@
     :pad-keys t
     ("n" "Next line" next-line :transient t)
     ("p" "Previous line" previous-line :transient t)
-    ("TAB" "Narrow column" kubed-list-next-column :transient t)
-    ("S-TAB" "Narrow column" kubed-list-previous-column :transient t)]])
+    ("TAB" "Next column" kubed-list-next-column :transient t)
+    ("S-TAB" "Previous column" kubed-list-previous-column :transient t)]])
 
 (provide 'kubed-transient)
 ;;; kubed-transient.el ends here
