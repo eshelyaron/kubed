@@ -1319,13 +1319,29 @@ of %S, instead of just one." resource plrl-var)
                (current-buffer)))))
 
        (defun ,list-cmd (context . ,(when namespaced '(namespace)))
-         ,(format "List Kubernetes %S." plrl-var)
-         (interactive (list (kubed-current-context)
-                            . ,(when namespaced
-                                 '((let ((cur (kubed-current-namespace)))
-                                     (if current-prefix-arg
-                                         (kubed-read-namespace "Namespace" cur)
-                                       cur))))))
+         ,(if namespaced
+              (format "List Kubed-List-Update %S in context CONTEXT and namespace NAMESPACE.
+
+Interactively, use the current context and namespace by default.  With a
+prefix argument \\[universal-argument], prompt for NAMESPACE.  With a
+double prefix argument \\[universal-argument] \\[universal-argument], \
+prompt for CONTEXT as well." plrl-var)
+            (format "List Kubed-List-Update %S in context CONTEXT.
+
+Interactively, use the current context.  With a prefix argument
+\\[universal-argument], prompt for CONTEXT." plrl-var))
+         (interactive
+          (let* ((context (kubed-current-context))
+                 (context (if (equal current-prefix-arg
+                                     ,(if namespaced ''(16) ''(4)))
+                              (kubed-read-context "Context" context)
+                            context)))
+            (list context
+                  . ,(when namespaced
+                       '((let ((cur (kubed-current-namespace context)))
+                           (if current-prefix-arg
+                               (kubed-read-namespace "Namespace" cur nil context)
+                             cur)))))))
          (pop-to-buffer (,buff-fun context . ,(when namespaced '(namespace)))))
 
        (defun ,expl-cmd ()
