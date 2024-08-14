@@ -51,6 +51,7 @@
      ("RET" "Display" kubed-transient-display)
      ("+" "Create"  kubed-transient-create)
      ("*" "Apply"   kubed-transient-apply)
+     ("e" "Edit"    kubed-transient-edit)
      ("D" "Delete"  kubed-transient-delete)]
    ;; Second column.
    [("r" "Run"     kubed-transient-run)
@@ -238,6 +239,32 @@
   (interactive)
   (transient-setup 'kubed-transient-display nil nil
                    :scope '("get")))
+
+;;;###autoload (autoload 'kubed-transient-edit "kubed-transient" nil t)
+(transient-define-prefix kubed-transient-edit ()
+  "Edit Kubernetes resource."
+  ["Kubernetes Edit\n"
+   ["Kinds"
+    ("p" "Pod" kubed-edit-pod)
+    ("d" "Deployment" kubed-edit-deployment)
+    ("j" "Job" kubed-edit-job)
+    ("c" "CronJob" kubed-edit-cronjob)
+    ("s" "Service" kubed-edit-service)]
+   ["More"
+    :pad-keys t
+    ("S" "Secret" kubed-edit-secret)
+    ("N" "Namespace" kubed-edit-namespace)
+    ("i" "Ingress" kubed-edit-ingress)
+    ("RET" "Any type" kubed-edit-resource)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-n" "Namespace" "--namespace="
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
+  (interactive)
+  (transient-setup 'kubed-transient-edit nil nil
+                   :scope '("edit")))
 
 ;;;###autoload (autoload 'kubed-transient-delete "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-delete ()

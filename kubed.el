@@ -1004,8 +1004,9 @@ mode as their parent."
   (setq-local bookmark-make-record-function #'kubed-list-make-bookmark)
   (add-hook 'context-menu-functions #'kubed-list-context-menu nil t))
 
+;;;###autoload
 (defun kubed-delete-resources (type resources context &optional namespace)
-  "Delete Kubernetes RESOURCES of type TYPE in CONTEXT.
+  "Delete Kubernetes RESOURCES of type TYPE in context CONTEXT.
 
 For namespaced resource types, NAMESPACE is the namespace of RESOURCE.
 
@@ -1069,8 +1070,44 @@ compatibility with earlier Emacs versions."
       then-form
     (when else-forms (cons 'progn else-forms))))
 
-(defun kubed-edit-resource (type resource &optional context namespace)
-  "Edit Kubernetes RESOURCE of type TYPE."
+;;;###autoload
+(defun kubed-edit-resource (type resource context &optional namespace)
+  "Edit Kubernetes RESOURCE of type TYPE in context CONTEXT.
+
+For namespaced resource types, NAMESPACE is the namespace of RESOURCE.
+
+Interactively, use the current context and namespace by default, and
+prompt for TYPE and RESOURCES.  With a prefix argument \
+\\[universal-argument],
+prompt for NAMESPACE.  With a double prefix argument \
+\\[universal-argument] \\[universal-argument],
+prompt for CONTEXT as well."
+  (interactive
+   (let ((type nil) (context nil) (namespace nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-edit))
+       (cond
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless type
+       (setq type (kubed-read-resource-type "Type of resource to edit"
+                                            nil context)))
+     (when (and (kubed-namespaced-p type context) (null namespace))
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list type (kubed-read-resource-name type "Edit" nil nil
+                                          context namespace)
+           context namespace)))
   (unless (bound-and-true-p server-process) (server-start))
   (let ((process-environment
          (cons (kubed--static-if (<= 30 emacs-major-version)
@@ -1270,15 +1307,55 @@ Interactively, use the current context.  With a prefix argument
             . ,(when namespaced '((or namespace (kubed-local-namespace context)))))))
 
        (defun ,edt-name (,resource &optional context . ,(when namespaced '(namespace)))
-         ,(format "Edit Kubernetes %S %s." resource (upcase (symbol-name resource)))
-         (interactive ,(if namespaced
-                           `(let ((namespace (and current-prefix-arg
-                                                  (kubed-read-namespace
-                                                   "Namespace" (kubed-current-namespace)))))
-                              (list (,read-fun "Edit" nil nil nil namespace) nil namespace))
-                         `(list (,read-fun "Edit"))))
-         (kubed-edit-resource ,(symbol-name plrl-var) ,resource context
-                              . ,(when namespaced '(namespace))))
+         ,(if namespaced
+              (format "Edit Kubernetes %S %s in CONTEXT and NAMESPACE.
+
+Interactively, use the current context and namespace by default.  With a
+prefix argument \\[universal-argument], prompt for NAMESPACE.  With a
+double prefix argument \\[universal-argument] \\[universal-argument], \
+prompt for CONTEXT as well." resource (upcase (symbol-name resource)))
+            (format "Edit Kubernetes %S %s in context CONTEXT.
+
+Interactively, use the current context.  With a prefix argument
+\\[universal-argument], prompt for CONTEXT." resource (upcase (symbol-name resource))))
+         (interactive
+          ,(if namespaced
+               `(let ((context nil) (namespace nil))
+                  (dolist (arg (kubed-transient-args 'kubed-transient-edit))
+                    (cond
+                     ((string-match "--namespace=\\(.+\\)" arg)
+                      (setq namespace (match-string 1 arg)))
+                     ((string-match "--context=\\(.+\\)" arg)
+                      (setq context (match-string 1 arg)))))
+                  (unless context
+                    (setq context
+                          (let ((cxt (kubed-local-context)))
+                            (if (equal current-prefix-arg '(16))
+                                (kubed-read-context "Context" cxt)
+                              cxt))))
+                  (unless namespace
+                    (setq namespace
+                          (let ((cur (kubed-local-namespace context)))
+                            (if current-prefix-arg
+                                (kubed-read-namespace "Namespace" cur nil context)
+                              cur))))
+                  (list (,read-fun "Edit" nil nil context namespace) context namespace))
+             `(let ((context nil))
+                (dolist (arg (kubed-transient-args 'kubed-transient-edit))
+                  (cond
+                   ((string-match "--context=\\(.+\\)" arg)
+                    (setq context (match-string 1 arg)))))
+                (unless context
+                  (setq context
+                        (let ((cxt (kubed-local-context)))
+                          (if current-prefix-arg
+                              (kubed-read-context "Context" cxt)
+                            cxt))))
+                (list (,read-fun "Edit" nil nil context) context))))
+         (let ((context (or context (kubed-local-context))))
+           (kubed-edit-resource
+            ,(symbol-name plrl-var) ,resource context
+            . ,(when namespaced '((or namespace (kubed-local-namespace context)))))))
 
        (defun ,dlt-name (,plrl-var &optional context
                                    . ,(when namespaced '(namespace)))
