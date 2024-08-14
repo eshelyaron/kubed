@@ -251,7 +251,7 @@ prompt for CONTEXT as well."
      (unless type
        (setq type (kubed-read-resource-type "Type of resource to display"
                                             nil context)))
-     (unless namespace
+     (when (and (kubed-namespaced-p type context) (null namespace))
        (setq namespace
              (let ((cur (kubed-local-namespace context)))
                (if current-prefix-arg
