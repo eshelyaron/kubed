@@ -15,11 +15,18 @@
 (require 'kubed)
 (require 'transient)
 
-(defclass kubed-transient-infix (transient-infix) ())
+(defun kubed-transient-read-context (prompt _initial-input _history)
+  "Prompt with PROMPT for Kubernetes context."
+  (kubed-read-context prompt (kubed-local-context)))
 
 (defun kubed-transient-read-namespace (prompt _initial-input _history)
   "Prompt with PROMPT for Kubernetes namespace."
-  (kubed-read-namespace prompt (kubed-current-namespace)))
+  (let ((context (seq-some (lambda (s)
+                             (and (cl-typep s 'transient-infix)
+                                  (equal (oref s argument) "--context=")
+                                  (oref s value)))
+                           transient--suffixes)))
+    (kubed-read-namespace prompt (kubed-current-namespace context) nil context)))
 
 (defun kubed-transient-read-ingressclass (prompt _initial-input _history)
   "Prompt with PROMPT for Kubernetes ingress class."
@@ -224,7 +231,9 @@
     ("!" "Command line" kubed-kubectl-command)]
    ["Options"
     ("-n" "Namespace" "--namespace="
-     :prompt "Namespace" :reader kubed-transient-read-namespace)]]
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-display nil nil
                    :scope '("get")))

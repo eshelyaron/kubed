@@ -226,20 +226,31 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
     (type resource context &optional namespace)
   "Display Kubernetes RESOURCE of type TYPE in BUFFER."
   (interactive
-   (let* ((type (kubed-read-resource-type "Resource type to display"))
-          (namespace
-           (when (kubed-namespaced-p type)
-             (or (seq-some
-                  (lambda (arg)
-                    (when (string-match "--namespace=\\(.+\\)" arg)
-                      (match-string 1 arg)))
-                  (kubed-transient-args 'kubed-transient-display))
-                 (let ((cur (kubed-current-namespace)))
-                   (if current-prefix-arg
-                       (kubed-read-namespace "Namespace" cur)
-                     cur))))))
-     (list type (kubed-read-resource-name type "Display" nil namespace)
-           (kubed-current-context) namespace)))
+   (let ((type nil) (context nil) (namespace nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-display))
+       (cond
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless type
+       (setq type (kubed-read-resource-type "Type of resource to display"
+                                            nil context)))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list type (kubed-read-resource-name type "Display" nil nil
+                                          context namespace)
+           context namespace)))
   (display-buffer
    (kubed-display-resource-in-buffer
     (concat "*Kubed "
@@ -1028,7 +1039,7 @@ compatibility with earlier Emacs versions."
            (debug (sexp sexp &rest sexp)))
   (if (eval condition lexical-binding)
       then-form
-    (cons 'progn else-forms)))
+    (when else-forms (cons 'progn else-forms))))
 
 (defun kubed-edit-resource (type resource &optional context namespace)
   "Edit Kubernetes RESOURCE of type TYPE."
@@ -1184,19 +1195,42 @@ of %S, instead of just one." resource plrl-var)
                   resource (upcase (symbol-name resource)))
          (interactive
           ,(if namespaced
-               `(let ((namespace
-                       ;; Consult transient for --namespace.
-                       (or (seq-some
-                            (lambda (arg)
-                              (when (string-match "--namespace=\\(.+\\)" arg)
-                                (match-string 1 arg)))
-                            (kubed-transient-args 'kubed-transient-display))
-                           (and current-prefix-arg (kubed-read-namespace "Namespace" (kubed-current-namespace))))))
-                  (list (,read-fun "Display" nil nil nil namespace) nil namespace))
-             `(list (,read-fun "Display"))))
-         (kubed-display-resource
-          ,(symbol-name plrl-var) ,resource (or context (kubed-current-context))
-          . ,(when namespaced '(namespace))))
+               `(let ((context nil) (namespace nil))
+                  (dolist (arg (kubed-transient-args 'kubed-transient-display))
+                    (cond
+                     ((string-match "--namespace=\\(.+\\)" arg)
+                      (setq namespace (match-string 1 arg)))
+                     ((string-match "--context=\\(.+\\)" arg)
+                      (setq context (match-string 1 arg)))))
+                  (unless context
+                    (setq context
+                          (let ((cxt (kubed-local-context)))
+                            (if (equal current-prefix-arg '(16))
+                                (kubed-read-context "Context" cxt)
+                              cxt))))
+                  (unless namespace
+                    (setq namespace
+                          (let ((cur (kubed-local-namespace context)))
+                            (if current-prefix-arg
+                                (kubed-read-namespace "Namespace" cur nil context)
+                              cur))))
+                  (list (,read-fun "Display" nil nil context namespace) context namespace))
+             `(let ((context nil))
+                (dolist (arg (kubed-transient-args 'kubed-transient-display))
+                  (cond
+                   ((string-match "--context=\\(.+\\)" arg)
+                    (setq context (match-string 1 arg)))))
+                (unless context
+                  (setq context
+                        (let ((cxt (kubed-local-context)))
+                          (if current-prefix-arg
+                              (kubed-read-context "Context" cxt)
+                            cxt))))
+                (list (,read-fun "Display" nil nil context) context))))
+         (let ((context (or context (kubed-local-context))))
+           (kubed-display-resource
+            ,(symbol-name plrl-var) ,resource context
+            . ,(when namespaced '((or namespace (kubed-local-namespace context)))))))
 
        (defun ,edt-name (,resource &optional context . ,(when namespaced '(namespace)))
          ,(format "Edit Kubernetes %S %s." resource (upcase (symbol-name resource)))
@@ -1957,6 +1991,12 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
   "Return current Kubernetes context."
   (car (process-lines kubed-kubectl-program "config" "current-context")))
 
+(defun kubed-local-context ()
+  "Return Kubernetes context local to the current buffer."
+  (or kubed-list-context
+      (nth 2 kubed-display-resource-info)
+      (kubed-current-context)))
+
 (defvar kubed-context-history nil
   "History list for `kubed-read-context'.")
 
@@ -2027,6 +2067,34 @@ Optional argument DEFAULT is the minibuffer default argument."
         "config" "view" "-o"
         (format "jsonpath={.contexts[?(.name==\"%s\")].context.namespace}"
                 (or context (kubed-current-context))))))
+
+(defun kubed-local-namespace (&optional context)
+  "Return Kubernetes namespace in CONTEXT local to the current buffer."
+  (or kubed-list-namespace
+      (nth 3 kubed-display-resource-info)
+      (kubed--static-if (<= 31 emacs-major-version)
+          (and (string-match "[/:]kubernetes:.*%\\([a-z0-9-]+\\):"
+                             default-directory)
+               (match-string 1 default-directory)))
+      (kubed-current-namespace (or context (kubed-local-context)))))
+
+(defun kubed-local-context-and-namespace ()
+  "Return (CONTEXT . NAMESPACE) pair local to the current buffer."
+  (or (when-let ((context kubed-list-context))
+        (cons context
+              (or kubed-list-namespace
+                  (kubed-current-namespace context))))
+      (when-let ((context (nth 2 kubed-display-resource-info)))
+        (cons context
+              (or (nth 3 kubed-display-resource-info)
+                  (kubed-current-namespace context))))
+      (let ((context (kubed-current-context)))
+        (cons context
+              (or (kubed--static-if (<= 31 emacs-major-version)
+                      (and (string-match "[/:]kubernetes:.*%\\([a-z0-9-]+\\):"
+                                         default-directory)
+                           (match-string 1 default-directory)))
+                  (kubed-current-namespace context))))))
 
 ;;;###autoload
 (defun kubed-set-namespace (ns &optional context)
