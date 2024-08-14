@@ -111,7 +111,9 @@
     ("-M" "Include managed fields" "--show-managed-fields")]
    ["Options"
     ("-f" "Definition file" "--filename="
-     :reader kubed-transient-read-resource-definition-file-name)]]
+     :reader kubed-transient-read-resource-definition-file-name)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-diff nil nil
                    :scope '("diff")))

@@ -2805,15 +2805,19 @@ the current context; non-nil INCLUDE-MANAGED (interactively, the prefix
 argument) says to include managed fields in the comparison."
   (interactive
    (let ((definition nil) (context nil) (include-managed nil))
-     (dolist (arg (when (and (fboundp 'transient-args)
-                             (fboundp 'kubed-transient-diff))
-                    (transient-args 'kubed-transient-diff)))
+     (dolist (arg (kubed-transient-args 'kubed-transient-diff))
        (cond
         ((string-match "--filename=\\(.+\\)" arg)
          (setq definition (match-string 1 arg)))
         ((string-match "--context=\\(.+\\)" arg)
          (setq context (match-string 1 arg)))
         ((equal "--show-managed-fields" arg) (setq include-managed t))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
      (list (or definition (kubed-read-resource-definition-file-name))
            (or include-managed current-prefix-arg)
            context)))
