@@ -839,11 +839,7 @@ regardless of QUIET."
 (defun kubed-list-create (definition &optional kind)
   "Create Kubernetes resource of kind KIND from definition file DEFINITION."
   (interactive (list (kubed-read-resource-definition-file-name)))
-  (kubed-create definition kind
-                ;; This is also called from non-list buffers via
-                ;; `kubed-create-FOO' commands, in which case context is
-                ;; nil, which is means we default to current context.
-                kubed-list-context)
+  (kubed-create definition kind kubed-list-context)
   (kubed-list-update t))
 
 (defun kubed-list-column-number-at-point ()
@@ -1412,12 +1408,28 @@ Interactively, use the current context.  With a prefix argument
             . ,(when namespaced '((or namespace (kubed-local-namespace context)))))))
 
        ,(if crt-spec `(defun ,crt-name . ,crt-spec)
-          `(defun ,crt-name (definition)
-             ,(format "Create Kubernetes %s from definition file DEFINITION."
+          `(defun ,crt-name (definition &optional context)
+             ,(format "Create Kubernetes %s from file DEFINITION in CONTEXT.
+
+Interactively, prompt for DEFINITION and use the current context.  With
+a prefix argument \\[universal-argument], prompt for CONTEXT too."
                       (symbol-name resource))
-             (interactive (list (kubed-read-resource-definition-file-name
-                                 ,(symbol-name resource))))
-             (kubed-list-create definition ,(symbol-name resource))))
+             (interactive
+              (let ((context nil))
+                (dolist (arg (kubed-transient-args 'kubed-transient-create))
+                  (cond
+                   ((string-match "--context=\\(.+\\)" arg)
+                    (setq context (match-string 1 arg)))))
+                (unless context
+                  (setq context
+                        (let ((cxt (kubed-local-context)))
+                          (if current-prefix-arg
+                              (kubed-read-context "Context" cxt)
+                            cxt))))
+                (list (kubed-read-resource-definition-file-name ,(symbol-name resource))
+                      context)))
+             (kubed-create definition ,(symbol-name resource) context)
+             (kubed-update ,(symbol-name plrl-var) context)))
 
        ,@(let ((click-var (gensym "click")))
            (mapcar
@@ -1685,15 +1697,30 @@ Switch to namespace `%s' and proceed?" kubed-list-namespace))
   :namespaced nil
   :prefix (("S" "Set" kubed-set-namespace))
   :create
-  ((name &optional context) "Create Kubernetes namespace NAME in CONTEXT."
-   (interactive (list (read-string "Create namespace with name: ")))
+  ((name &optional context)
+   "Create Kubernetes namespace NAME in CONTEXT.
+
+Interactively, prompt for NAME.  With a prefix argument, prompt for
+CONTEXT instead."
+   (let ((context nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-create))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if current-prefix-arg
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (list (read-string "Create namespace with name: ") context))
    (unless (zerop
             (apply #'call-process
                    kubed-kubectl-program nil nil nil
                    "create" "namespace" name
                    (when context (list "--context" context))))
      (user-error "Failed to create Kubernetes namespace with name `%s'" name))
-   (kubed-update "namespaces" (or context (kubed-current-context)))
+   (kubed-update "namespaces" (or context (kubed-local-context)))
    (message "Created Kubernetes namespace with name `%s'." name))
   (set "s" "Set current namespace to"
        (save-excursion
@@ -1744,17 +1771,31 @@ the current context; NAMESPACE is the namespace to use for the job,
 defaulting to the current namespace."
   (interactive
    (let ((name (read-string "Create job with name: "))
-         (namespace (seq-some
-                     (lambda (arg)
-                       (when (string-match "--namespace=\\(.+\\)" arg)
-                         (match-string 1 arg)))
-                     (kubed-transient-args 'kubed-transient-create-job))))
+         (context nil) (namespace nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-create-job))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
      (list name
            (kubed-read-cronjob
-            (format "Create job `%s' from cronjob" name) nil nil nil namespace)
-           nil namespace)))
-  (let ((context (or context (kubed-current-context)))
-        (namespace (or namespace (kubed-current-namespace context))))
+            (format "Create job `%s' from cronjob" name) nil nil context namespace)
+           context namespace)))
+  (let ((context (or context (kubed-local-context)))
+        (namespace (or namespace (kubed-local-namespace context))))
     (unless (zerop
              (call-process
               kubed-kubectl-program nil nil nil
@@ -1793,6 +1834,18 @@ defaulting to the current namespace."
           (setq namespace (match-string 1 arg)))
          ((string-match "-- =\\(.+\\)" arg)
           (setq command (split-string-and-unquote (match-string 1 arg))))))
+      (unless context
+        (setq context
+              (let ((cxt (kubed-local-context)))
+                (if (equal current-prefix-arg '(16))
+                    (kubed-read-context "Context" cxt)
+                  cxt))))
+      (unless namespace
+        (setq namespace
+              (let ((cur (kubed-local-namespace context)))
+                (if current-prefix-arg
+                    (kubed-read-namespace "Namespace" cur nil context)
+                  cur))))
       (unless image
         (setq image (kubed-read-container-image "Image to run in job")))
       (list name image context namespace command)))
@@ -1922,6 +1975,18 @@ optional command to run in the images."
           (setq command (split-string-and-unquote (match-string 1 arg))))))
       (unless images
         (setq images (kubed-read-container-image "Images to deploy" nil t)))
+      (unless context
+        (setq context
+              (let ((cxt (kubed-local-context)))
+                (if (equal current-prefix-arg '(16))
+                    (kubed-read-context "Context" cxt)
+                  cxt))))
+      (unless namespace
+        (setq namespace
+              (let ((cur (kubed-local-namespace context)))
+                (if current-prefix-arg
+                    (kubed-read-namespace "Namespace" cur nil context)
+                  cur))))
       (list name images context namespace replicas port command)))
    (unless (zerop
             (apply #'call-process
@@ -1954,7 +2019,7 @@ optional command to run in the images."
 (kubed-define-resource replicaset
     ((reps ".status.replicas" 4
            (lambda (l r) (< (string-to-number l) (string-to-number r)))
-           nil                           ; formatting function
+           nil                          ; formatting function
            :right-align t)
      (ownerkind ".metadata.ownerReferences[0].kind" 12)
      (ownername ".metadata.ownerReferences[0].name" 16)
@@ -2025,6 +2090,18 @@ overrides the default command IMAGE runs."
           (setq context (match-string 1 arg)))
          ((string-match "-- =\\(.+\\)" arg)
           (setq command (split-string-and-unquote (match-string 1 arg))))))
+      (unless context
+        (setq context
+              (let ((cxt (kubed-local-context)))
+                (if (equal current-prefix-arg '(16))
+                    (kubed-read-context "Context" cxt)
+                  cxt))))
+      (unless namespace
+        (setq namespace
+              (let ((cur (kubed-local-namespace context)))
+                (if current-prefix-arg
+                    (kubed-read-namespace "Namespace" cur nil context)
+                  cur))))
       (unless image
         (setq image (kubed-read-container-image "Image to run")))
       (unless schedule
@@ -2107,6 +2184,18 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
           (setq default-backend (match-string 1 arg)))
          ((string-match "--annotation=\\(.+\\)" arg)
           (push (match-string 1 arg) annotations))))
+      (unless context
+        (setq context
+              (let ((cxt (kubed-local-context)))
+                (if (equal current-prefix-arg '(16))
+                    (kubed-read-context "Context" cxt)
+                  cxt))))
+      (unless namespace
+        (setq namespace
+              (let ((cur (kubed-local-namespace context)))
+                (if current-prefix-arg
+                    (kubed-read-namespace "Namespace" cur nil context)
+                  cur))))
       (unless rules (setq rules (kubed-read-ingress-rules)))
       (list name rules context namespace class default-backend annotations)))
    (unless (zerop
@@ -2332,13 +2421,22 @@ completion candidates."
 ;;;###autoload
 (defun kubed-create (definition &optional kind context)
   "Create resource of kind KIND with definition DEFINITION via CONTEXT."
-  (interactive
-   (list (or (seq-some
-              (lambda (arg)
-                (when (string-match "--filename=\\(.+\\)" arg)
-                  (match-string 1 arg)))
-              (kubed-transient-args 'kubed-transient-create))
-             (kubed-read-resource-definition-file-name))))
+  (let ((definition nil) (context nil))
+    (dolist (arg (kubed-transient-args 'kubed-transient-create))
+      (cond
+       ((string-match "--context=\\(.+\\)" arg)
+        (setq context (match-string 1 arg)))
+       ((string-match "--filename=\\(.+\\)" arg)
+        (setq definition (match-string 1 arg)))))
+    (unless context
+      (setq context
+            (let ((cxt (kubed-local-context)))
+              (if current-prefix-arg
+                  (kubed-read-context "Context" cxt)
+                cxt))))
+    (unless definition
+      (setq definition (kubed-read-resource-definition-file-name)))
+    (list definition nil context))
   (let ((kind (or kind "resource")))
     (message "Creating Kubernetes %s with definition `%s'..." kind definition)
     (message "Creating Kubernetes %s with definition `%s'... Done.  New %s name is `%s'."

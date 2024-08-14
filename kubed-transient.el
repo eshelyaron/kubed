@@ -198,18 +198,24 @@
 (transient-define-prefix kubed-transient-create ()
   "Create Kubernetes resource."
   ["Kubernetes Create\n"
-   ["Actions"
-    ("+" "Create" kubed-create)
+   ["Kinds"
+    ("p" "Pod" kubed-create-pod)
+    ("d" "Deployment" kubed-transient-create-deployment)
+    ("j" "Job" kubed-transient-create-job)
+    ("c" "CronJob" kubed-transient-create-cronjob)
+    ("s" "Service" kubed-create-service)]
+   ["More"
+    :pad-keys t
+    ("S" "Secret" kubed-create-secret)
+    ("N" "Namespace" kubed-create-namespace)
+    ("i" "Ingress" kubed-transient-create-ingress)
+    ("+" "Any type" kubed-create)
     ("!" "Command line" kubed-kubectl-command)]
    ["Options"
     ("-f" "Definition file" "--filename="
-     :reader kubed-transient-read-resource-definition-file-name)]
-   ["Kinds"
-    ("d" "Deployment" kubed-transient-create-deployment)
-    ("n" "Namespace" kubed-create-namespace)
-    ("c" "CronJob" kubed-transient-create-cronjob)
-    ("j" "Job" kubed-transient-create-job)
-    ("i" "Ingress" kubed-transient-create-ingress)]]
+     :reader kubed-transient-read-resource-definition-file-name)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-create nil nil
                    :scope '("create")))
@@ -302,6 +308,8 @@
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-I" "Image" "--image="
      :prompt "Image to run: ")
     ("-S" "Schedule" "--schedule="
@@ -322,6 +330,8 @@
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-c" "Class" "--class="
      :prompt "Class" :reader kubed-transient-read-ingressclass)
     ("-d" "Default backend service" "--default-backend="
@@ -346,6 +356,8 @@
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-r" "Replicas" "--replicas="
      :prompt "Number of replicas: " :reader transient-read-number-N+)
     ("-I" "Image" "--image="
@@ -370,6 +382,8 @@
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-I" "Image" "--image="
      :prompt "Image to run: ")
     ("--" "Command" "-- ="
