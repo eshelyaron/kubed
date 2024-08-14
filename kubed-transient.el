@@ -189,6 +189,8 @@
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-t" "Patch type" "--type="
      :prompt "Patch type: "
      :choices ("strategic" "merge" "json"))]]

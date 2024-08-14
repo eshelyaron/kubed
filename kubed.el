@@ -2908,11 +2908,12 @@ Optional argument NAMESPACE is the namespace in which to look for NAME.
 STRATEGY is the patch type to use, one of \"json\", \"merge\" and
 \"strategic\", defaulting to \"strategic\".
 
-Interactively, prompt for TYPE, NAME and PATCH."
+Interactively, prompt for TYPE, NAME and PATCH.  With a prefix argument,
+prompt for NAMESPACE too.  With a double prefix argument, also prompt
+for CONTEXT."
   (interactive
-   (let ((type (kubed-read-resource-type "Resource type to patch"))
-         (context nil) (namespace nil) (strategy nil))
-     (dolist (arg (kubed-transient-args 'kubed-transient-apply))
+   (let ((type nil) (context nil) (namespace nil) (strategy nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-patch))
        (cond
         ((string-match "--namespace=\\(.+\\)" arg)
          (setq namespace (match-string 1 arg)))
@@ -2920,8 +2921,20 @@ Interactively, prompt for TYPE, NAME and PATCH."
          (setq context (match-string 1 arg)))
         ((string-match "--type=\\(.+\\)" arg)
          (setq strategy (match-string 1 arg)))))
-     (list type
-           (kubed-read-resource-name type "Resource to patch")
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list (kubed-read-resource-type "Resource type to patch" nil context)
+           (kubed-read-resource-name type "Resource to patch" nil nil context namespace)
            (kubed-read-patch) context namespace strategy)))
   (message "Applying patch to `%s'..." name)
   (unless (zerop
