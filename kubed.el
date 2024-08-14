@@ -224,7 +224,16 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
 ;;;###autoload
 (defun kubed-display-resource
     (type resource context &optional namespace)
-  "Display Kubernetes RESOURCE of type TYPE in BUFFER."
+  "Display Kubernetes RESOURCE of type TYPE in CONTEXT.
+
+For namespaced resource types, NAMESPACE is the namespace of RESOURCE.
+
+Interactively, use the current context and namespace by default, and
+prompt for TYPE and RESOURCE.  With a prefix argument \
+\\[universal-argument],
+prompt for NAMESPACE.  With a double prefix argument \
+\\[universal-argument] \\[universal-argument],
+prompt for CONTEXT as well."
   (interactive
    (let ((type nil) (context nil) (namespace nil))
      (dolist (arg (kubed-transient-args 'kubed-transient-display))
@@ -1191,8 +1200,17 @@ of %S, instead of just one." resource plrl-var)
          (kubed-read-resource-name ,(symbol-name plrl-var) prompt default multi context . ,(when namespaced '(namespace))))
 
        (defun ,dsp-name (,resource &optional context . ,(when namespaced '(namespace)))
-         ,(format "Display Kubernetes %S %s."
-                  resource (upcase (symbol-name resource)))
+         ,(if namespaced
+              (format "Display Kubernetes %S %s in CONTEXT and NAMESPACE.
+
+Interactively, use the current context and namespace by default.  With a
+prefix argument \\[universal-argument], prompt for NAMESPACE.  With a
+double prefix argument \\[universal-argument] \\[universal-argument], \
+prompt for CONTEXT as well." resource (upcase (symbol-name resource)))
+            (format "Display Kubernetes %S %s in context CONTEXT.
+
+Interactively, use the current context.  With a prefix argument
+\\[universal-argument], prompt for CONTEXT." resource (upcase (symbol-name resource))))
          (interactive
           ,(if namespaced
                `(let ((context nil) (namespace nil))
