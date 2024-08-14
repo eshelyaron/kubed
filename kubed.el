@@ -1005,22 +1005,41 @@ mode as their parent."
   (add-hook 'context-menu-functions #'kubed-list-context-menu nil t))
 
 (defun kubed-delete-resources (type resources context &optional namespace)
-  "Delete Kubernetes RESOURCES of type TYPE."
+  "Delete Kubernetes RESOURCES of type TYPE in CONTEXT.
+
+For namespaced resource types, NAMESPACE is the namespace of RESOURCE.
+
+Interactively, use the current context and namespace by default, and
+prompt for TYPE and RESOURCES.  With a prefix argument \
+\\[universal-argument],
+prompt for NAMESPACE.  With a double prefix argument \
+\\[universal-argument] \\[universal-argument],
+prompt for CONTEXT as well."
   (interactive
-   (let* ((type (kubed-read-resource-type "Resource type to delete"))
-          (context (kubed-current-context))
-          (namespace
-           (when (kubed-namespaced-p type)
-             (or (seq-some
-                  (lambda (arg)
-                    (when (string-match "--namespace=\\(.+\\)" arg)
-                      (match-string 1 arg)))
-                  (kubed-transient-args 'kubed-transient-delete))
-                 (let ((cur (kubed-current-namespace)))
-                   (if current-prefix-arg
-                       (kubed-read-namespace "Namespace" cur)
-                     cur))))))
-     (list type (kubed-read-resource-name type "Delete" nil t nil namespace)
+   (let ((type nil) (context nil) (namespace nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-delete))
+       (cond
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless type
+       (setq type (kubed-read-resource-type "Type of resource to delete"
+                                            nil context)))
+     (when (and (kubed-namespaced-p type context) (null namespace))
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list type (kubed-read-resource-name type "Delete" nil t
+                                          context namespace)
            context namespace)))
   (unless resources (user-error "You didn't specify %s to delete" type))
   (message (format "Deleting Kubernetes %s `%s'..."
@@ -1263,18 +1282,57 @@ Interactively, use the current context.  With a prefix argument
 
        (defun ,dlt-name (,plrl-var &optional context
                                    . ,(when namespaced '(namespace)))
-         ,(format "Delete Kubernetes %S %s." plrl-var
-                  (upcase (symbol-name plrl-var)))
-         (interactive ,(if namespaced
-                           `(let ((namespace (and current-prefix-arg
-                                                  (kubed-read-namespace
-                                                   "Namespace" (kubed-current-namespace)))))
-                              (list (,read-fun "Delete" nil t nil namespace) nil namespace))
-                         `(list (,read-fun "Delete" nil t))))
+         ,(if namespaced
+              (format "Delete Kubernetes %S %s in CONTEXT and NAMESPACE.
+
+Interactively, use the current context and namespace by default.  With a
+prefix argument \\[universal-argument], prompt for NAMESPACE.  With a
+double prefix argument \\[universal-argument] \\[universal-argument], \
+prompt for CONTEXT as well." plrl-var (upcase (symbol-name plrl-var)))
+            (format "Delete Kubernetes %S %s in context CONTEXT.
+
+Interactively, use the current context.  With a prefix argument
+\\[universal-argument], prompt for CONTEXT." plrl-var (upcase (symbol-name plrl-var))))
+         (interactive
+          ,(if namespaced
+               `(let ((context nil) (namespace nil))
+                  (dolist (arg (kubed-transient-args 'kubed-transient-delete))
+                    (cond
+                     ((string-match "--namespace=\\(.+\\)" arg)
+                      (setq namespace (match-string 1 arg)))
+                     ((string-match "--context=\\(.+\\)" arg)
+                      (setq context (match-string 1 arg)))))
+                  (unless context
+                    (setq context
+                          (let ((cxt (kubed-local-context)))
+                            (if (equal current-prefix-arg '(16))
+                                (kubed-read-context "Context" cxt)
+                              cxt))))
+                  (unless namespace
+                    (setq namespace
+                          (let ((cur (kubed-local-namespace context)))
+                            (if current-prefix-arg
+                                (kubed-read-namespace "Namespace" cur nil context)
+                              cur))))
+                  (list (,read-fun "Delete" nil t context namespace) context namespace))
+             `(let ((context nil))
+                (dolist (arg (kubed-transient-args 'kubed-transient-delete))
+                  (cond
+                   ((string-match "--context=\\(.+\\)" arg)
+                    (setq context (match-string 1 arg)))))
+                (unless context
+                  (setq context
+                        (let ((cxt (kubed-local-context)))
+                          (if current-prefix-arg
+                              (kubed-read-context "Context" cxt)
+                            cxt))))
+                (list (,read-fun "Delete" nil t context) context))))
          (unless ,plrl-var
            (user-error ,(format "You didn't specify %S to delete" plrl-var)))
-         (kubed-delete-resources ,(symbol-name plrl-var) ,plrl-var context
-                                 . ,(when namespaced '(namespace))))
+         (let ((context (or context (kubed-local-context))))
+           (kubed-delete-resources
+            ,(symbol-name plrl-var) ,plrl-var context
+            . ,(when namespaced '((or namespace (kubed-local-namespace context)))))))
 
        ,(if crt-spec `(defun ,crt-name . ,crt-spec)
           `(defun ,crt-name (definition)

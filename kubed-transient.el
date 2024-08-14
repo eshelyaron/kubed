@@ -51,7 +51,7 @@
      ("RET" "Display" kubed-transient-display)
      ("+" "Create"  kubed-transient-create)
      ("*" "Apply"   kubed-transient-apply)
-     ("E" "Explain" kubed-explain)]
+     ("D" "Delete"  kubed-transient-delete)]
    ;; Second column.
    [("r" "Run"     kubed-transient-run)
     ("a" "Attach"  kubed-transient-attach)
@@ -61,6 +61,7 @@
    [("d" "Diff"    kubed-transient-diff)
     ("P" "Patch"   kubed-transient-patch)
     ("R" "Rollout" kubed-transient-rollout)
+    ("E" "Explain" kubed-explain)
     ("!" "Command line" kubed-kubectl-command)]])
 
 ;;;###autoload (autoload 'kubed-transient-rollout "kubed-transient" nil t)
@@ -227,7 +228,7 @@
     ("S" "Secret" kubed-display-secret)
     ("N" "Namespace" kubed-display-namespace)
     ("i" "Ingress" kubed-display-ingress)
-    ("RET" "Any" kubed-display-resource)
+    ("RET" "Any type" kubed-display-resource)
     ("!" "Command line" kubed-kubectl-command)]
    ["Options"
     ("-n" "Namespace" "--namespace="
@@ -237,6 +238,32 @@
   (interactive)
   (transient-setup 'kubed-transient-display nil nil
                    :scope '("get")))
+
+;;;###autoload (autoload 'kubed-transient-delete "kubed-transient" nil t)
+(transient-define-prefix kubed-transient-delete ()
+  "Delete Kubernetes resource."
+  ["Kubernetes Delete\n"
+   ["Kinds"
+    ("p" "Pod" kubed-delete-pods)
+    ("d" "Deployment" kubed-delete-deployments)
+    ("j" "Job" kubed-delete-jobs)
+    ("c" "CronJob" kubed-delete-cronjobs)
+    ("s" "Service" kubed-delete-services)]
+   ["More"
+    :pad-keys t
+    ("S" "Secret" kubed-delete-secrets)
+    ("N" "Namespace" kubed-delete-namespaces)
+    ("i" "Ingress" kubed-delete-ingresses)
+    ("D" "Any type" kubed-delete-resources)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-n" "Namespace" "--namespace="
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
+  (interactive)
+  (transient-setup 'kubed-transient-delete nil nil
+                   :scope '("delete")))
 
 ;;;###autoload (autoload 'kubed-transient-create-cronjob "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-create-cronjob ()
