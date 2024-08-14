@@ -2259,7 +2259,7 @@ Optional argument DEFAULT is the minibuffer default argument."
 (defun kubed-use-context (context)
   "Set current Kubernetes context to CONTEXT."
   (interactive
-   (list (kubed-read-context "Use context" (kubed-current-context))))
+   (list (kubed-read-context "Use context" (kubed-local-context))))
   (unless (zerop
            (call-process
             kubed-kubectl-program nil nil nil
@@ -2271,7 +2271,7 @@ Optional argument DEFAULT is the minibuffer default argument."
 (defun kubed-rename-context (old new)
   "Rename Kubernetes context OLD to NEW."
   (interactive
-   (let ((old (kubed-read-context "Rename context" (kubed-current-context))))
+   (let ((old (kubed-read-context "Rename context" (kubed-local-context))))
      (list old (read-string (format-prompt "Rename context to" old)
                             nil 'kubed-context-history old))))
   (unless (zerop
