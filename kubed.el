@@ -741,7 +741,8 @@ regardless of QUIET."
                 (tabulated-list-put-tag
                  (propertize "K" 'help-echo "Deletion in progress")))
               (forward-line)))
-          (let ((errb (generate-new-buffer " *kubed-list-delete-marked-stderr*")))
+          (let ((errb (generate-new-buffer " *kubed-list-delete-marked-stderr*"))
+                (buf (current-buffer)))
             (make-process
              :name "*kubed-list-delete-marked*"
              :stderr errb
@@ -753,7 +754,9 @@ regardless of QUIET."
                           ((string= status "finished\n")
                            (message (format "Deleted %d marked Kubernetes resources."
                                             (length delete-list)))
-                           (kubed-list-update t))
+                           (when (buffer-live-p buf)
+                             (with-current-buffer buf
+                               (kubed-list-update t))))
                           ((string= status "exited abnormally with code 1\n")
                            (with-current-buffer errb
                              (goto-char (point-max))
