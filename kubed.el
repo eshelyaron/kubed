@@ -1865,35 +1865,53 @@ defaulting to the current namespace."
    (message "Created Kubernetes job `%s'." name)))
 
 ;;;###autoload
-(defun kubed-watch-deployment-status (dep &optional context namespace)
+(defun kubed-watch-deployment-status (dep &optional context namespace cb)
   "Show and update status of Kubernetes deployment DEP in a dedicate buffer.
 
 Optional argument CONTEXT is the `kubectl' context to use, defaulting to
 the current context; NAMESPACE is the namespace of DEP, defaulting to
-the current namespace."
+the current namespace.  CB is an optional callback function to call with
+no arguments when the deployment ends.
+
+Interactively, prompt for DEP.  With a prefix argument, prompt for
+NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
   (interactive
-   (let ((namespace (seq-some
-                     (lambda (arg)
-                       (when (string-match "--namespace=\\(.+\\)" arg)
-                         (match-string 1 arg)))
-                     (kubed-transient-args 'kubed-transient-rollout))))
-     (list (kubed-read-deployment "Watch deployment status" nil nil nil namespace)
-           nil namespace)))
+   (let (context namespace)
+     (dolist (arg (kubed-transient-args 'kubed-transient-rollout))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list (kubed-read-deployment "Watch deployment status" nil nil
+                                  context namespace)
+           context namespace)))
   (let ((buf (get-buffer-create "*kubed-deployment-status*"))
-        (context (or context (kubed-current-context)))
-        (namespace (or namespace (kubed-current-namespace context))))
+        (context (or context (kubed-local-context)))
+        (namespace (or namespace (kubed-local-namespace context))))
     (with-current-buffer buf (erase-buffer))
     (make-process
      :name "*kubed-watch-deployment-status*"
      :buffer buf
      :command (list kubed-kubectl-program "rollout" "status"
                     "deployment" dep "-n" namespace "--context" context)
-     :sentinel
-     (lambda (_proc status)
-       (when (member status
-                     '("finished\n" "exited abnormally with code 1\n"))
-         (message "Deployment complete")
-         (kubed-update "deployments" context namespace))))
+     :sentinel (when cb
+                 (lambda (_proc status)
+                   (when (member status '("finished\n"
+                                          "exited abnormally with code 1\n"))
+                     (funcall cb)))))
     (display-buffer buf)))
 
 (defcustom kubed-restart-deployment-watch-status t
@@ -1903,26 +1921,53 @@ the current namespace."
 ;;;###autoload
 (defun kubed-restart-deployment (dep &optional context namespace)
   "Restart Kubernetes deployment DEP in namespace NAMESPACE via CONTEXT.
-If NAMESPACE is nil or omitted, it defaults to the current namespace."
+
+Optional argument CONTEXT is the `kubectl' context to use, defaulting to
+the current context; NAMESPACE is the namespace of DEP, defaulting to
+the current namespace.  CB is an optional callback function to call with
+no arguments when the deployment ends.
+
+Interactively, prompt for DEP.  With a prefix argument, prompt for
+NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
   (interactive
-   (let ((namespace (seq-some
-                     (lambda (arg)
-                       (when (string-match "--namespace=\\(.+\\)" arg)
-                         (match-string 1 arg)))
-                     (kubed-transient-args 'kubed-transient-rollout))))
-     (list (kubed-read-deployment "Restart deployment" nil nil nil namespace)
-           nil namespace)))
-  (unless (zerop
-           (apply #'call-process
-                  kubed-kubectl-program nil nil nil
-                  "rollout" "restart" "deployment" dep
-                  (append
-                   (when namespace (list "-n" namespace))
-                   (when context (list "--context" context)))))
-    (user-error "Failed to restart Kubernetes deployment `%s'" dep))
-  (message "Restarting Kubernetes deployment `%s'." dep)
-  (when kubed-restart-deployment-watch-status
-    (kubed-watch-deployment-status dep context namespace)))
+   (let (context namespace)
+     (dolist (arg (kubed-transient-args 'kubed-transient-rollout))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (list (kubed-read-deployment "Restart deployment" nil nil
+                                  context namespace)
+           context namespace)))
+  (let ((context (or context (kubed-local-context)))
+        (namespace (or namespace (kubed-local-namespace context))))
+    (unless (zerop
+             (apply #'call-process
+                    kubed-kubectl-program nil nil nil
+                    "rollout" "restart" "deployment" dep
+                    (append
+                     (when namespace (list "-n" namespace))
+                     (when context (list "--context" context)))))
+      (user-error "Failed to restart Kubernetes deployment `%s'" dep))
+    (message "Restarting Kubernetes deployment `%s'." dep)
+    (when kubed-restart-deployment-watch-status
+      (kubed-watch-deployment-status
+       dep context namespace
+       (lambda ()
+         (kubed-update "deployments" context namespace))))))
 
 ;;;###autoload (autoload 'kubed-display-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-deployment "kubed" nil t)

@@ -75,7 +75,9 @@
     ("!" "Command line" kubed-kubectl-command)]
    ["Options"
     ("-n" "Namespace" "--namespace="
-     :prompt "Namespace" :reader kubed-transient-read-namespace)]]
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-rollout nil nil
                    :scope '("rollout")))
