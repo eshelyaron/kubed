@@ -1702,18 +1702,19 @@ Switch to namespace `%s' and proceed?" kubed-list-namespace))
 
 Interactively, prompt for NAME.  With a prefix argument, prompt for
 CONTEXT instead."
-   (let ((context nil))
-     (dolist (arg (kubed-transient-args 'kubed-transient-create))
-       (cond
-        ((string-match "--context=\\(.+\\)" arg)
-         (setq context (match-string 1 arg)))))
-     (unless context
-       (setq context
-             (let ((cxt (kubed-local-context)))
-               (if current-prefix-arg
-                   (kubed-read-context "Context" cxt)
-                 cxt))))
-     (list (read-string "Create namespace with name: ") context))
+   (interactive
+    (let ((context nil))
+      (dolist (arg (kubed-transient-args 'kubed-transient-create))
+        (cond
+         ((string-match "--context=\\(.+\\)" arg)
+          (setq context (match-string 1 arg)))))
+      (unless context
+        (setq context
+              (let ((cxt (kubed-local-context)))
+                (if current-prefix-arg
+                    (kubed-read-context "Context" cxt)
+                  cxt))))
+      (list (read-string "Create namespace with name: ") context)))
    (unless (zerop
             (apply #'call-process
                    kubed-kubectl-program nil nil nil
@@ -1956,9 +1957,8 @@ to create for each image, PORT is the port to expose, and COMMAND is an
 optional command to run in the images."
    (interactive
     (let ((name (read-string "Create deployment with name: "))
-          (images nil)
-          (replicas (prefix-numeric-value current-prefix-arg))
-          (port nil) (command nil) (context nil) (namespace nil))
+          (images nil) (replicas nil) (port nil) (command nil)
+          (context nil) (namespace nil))
       (dolist (arg (kubed-transient-args 'kubed-transient-create-deployment))
         (cond
          ((string-match "--replicas=\\(.+\\)" arg)
@@ -1988,20 +1988,22 @@ optional command to run in the images."
                     (kubed-read-namespace "Namespace" cur nil context)
                   cur))))
       (list name images context namespace replicas port command)))
-   (unless (zerop
-            (apply #'call-process
-                   kubed-kubectl-program nil nil nil
-                   "create" "deployment" name
-                   (append
-                    (mapcar (lambda (image) (concat "--image=" image)) images)
-                    (when namespace (list (concat "--namespace=" namespace)))
-                    (when context (list (concat "--context=" context)))
-                    (when replicas (list (format "--replicas=%d" replicas)))
-                    (when port (list (format "--port=%d" port)))
-                    (when command (cons "--" command)))))
-     (user-error "Failed to create Kubernetes deployment `%s'" name))
-   (message "Created Kubernetes deployment `%s'." name)
-   (kubed-list-update t))
+   (let ((context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed-local-namespace context))))
+     (unless (zerop
+              (apply #'call-process
+                     kubed-kubectl-program nil nil nil
+                     "create" "deployment" name
+                     (append
+                      (mapcar (lambda (image) (concat "--image=" image)) images)
+                      (when namespace (list (concat "--namespace=" namespace)))
+                      (when context (list (concat "--context=" context)))
+                      (when replicas (list (format "--replicas=%d" replicas)))
+                      (when port (list (format "--port=%d" port)))
+                      (when command (cons "--" command)))))
+       (user-error "Failed to create Kubernetes deployment `%s'" name))
+     (message "Created Kubernetes deployment `%s'." name)
+     (kubed-update "deployments" context namespace)))
   (restart "R" "Restart"
            (kubed-restart-deployment deployment kubed-list-context kubed-list-namespace)
            (unless kubed-restart-deployment-watch-status
@@ -2421,22 +2423,23 @@ completion candidates."
 ;;;###autoload
 (defun kubed-create (definition &optional kind context)
   "Create resource of kind KIND with definition DEFINITION via CONTEXT."
-  (let ((definition nil) (context nil))
-    (dolist (arg (kubed-transient-args 'kubed-transient-create))
-      (cond
-       ((string-match "--context=\\(.+\\)" arg)
-        (setq context (match-string 1 arg)))
-       ((string-match "--filename=\\(.+\\)" arg)
-        (setq definition (match-string 1 arg)))))
-    (unless context
-      (setq context
-            (let ((cxt (kubed-local-context)))
-              (if current-prefix-arg
-                  (kubed-read-context "Context" cxt)
-                cxt))))
-    (unless definition
-      (setq definition (kubed-read-resource-definition-file-name)))
-    (list definition nil context))
+  (interactive
+   (let ((definition nil) (context nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-create))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--filename=\\(.+\\)" arg)
+         (setq definition (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if current-prefix-arg
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless definition
+       (setq definition (kubed-read-resource-definition-file-name)))
+     (list definition nil context)))
   (let ((kind (or kind "resource")))
     (message "Creating Kubernetes %s with definition `%s'..." kind definition)
     (message "Creating Kubernetes %s with definition `%s'... Done.  New %s name is `%s'."
