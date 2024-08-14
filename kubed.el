@@ -1533,14 +1533,14 @@ prompt for CONTEXT as well." plrl-var)
 Interactively, use the current context.  With a prefix argument
 \\[universal-argument], prompt for CONTEXT." plrl-var))
          (interactive
-          (let* ((context (kubed-current-context))
+          (let* ((context (kubed-local-context))
                  (context (if (equal current-prefix-arg
                                      ,(if namespaced ''(16) ''(4)))
                               (kubed-read-context "Context" context)
                             context)))
             (list context
                   . ,(when namespaced
-                       '((let ((cur (kubed-current-namespace context)))
+                       '((let ((cur (kubed-local-namespace context)))
                            (if current-prefix-arg
                                (kubed-read-namespace "Namespace" cur nil context)
                              cur)))))))
