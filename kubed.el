@@ -2854,13 +2854,11 @@ Non-nil STDIN says to connect local standard input to remote process.
 Non-nil TTY says to use a TTY for standard input.
 
 Interactively, prompt for POD; if there are multiple pod containers,
-prompt for CONTAINER as well; STDIN is t unless you call this command
-with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
- you call this command with \\[universal-argument]."
+prompt for CONTAINER as well.  With a prefix argument, prompt for
+NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT.
+STDIN and TTY are t interactively."
   (interactive
    (let ((context nil) (namespace nil) (stdin t) (tty t) (command nil) (args nil))
-     (when (<= 4  (prefix-numeric-value current-prefix-arg)) (setq tty   nil))
-     (when (<= 16 (prefix-numeric-value current-prefix-arg)) (setq stdin nil))
      (dolist (arg (kubed-transient-args 'kubed-transient-exec))
        (cond
         ((string-match "--namespace=\\(.+\\)" arg)
@@ -2873,18 +2871,26 @@ with \\[universal-argument] \\[universal-argument]; and TTY is t unless\
          (setq args    (split-string-and-unquote (match-string 1 arg))
                command (car args)
                args    (cdr args)))))
-     (let* ((context (or context (kubed-current-context)))
-            (n (or namespace
-                   (when current-prefix-arg
-                     (kubed-read-namespace "Namespace" (kubed-current-namespace) nil context))))
-            (p (kubed-read-pod "Attach to pod" nil nil context n))
-            (c (kubed-read-container p "Container" t context n)))
-       (unless command
-         (setq args    (split-string-and-unquote
-                        (read-string "Execute command: "))
-               command (car args)
-               args    (cdr args)))
-       (list p command c context n stdin tty args))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace
+             (let ((cur (kubed-local-namespace context)))
+               (if current-prefix-arg
+                   (kubed-read-namespace "Namespace" cur nil context)
+                 cur))))
+     (unless command
+       (setq args    (split-string-and-unquote
+                      (read-string "Execute command: "))
+             command (car args)
+             args    (cdr args)))
+     (let* ((p (kubed-read-pod "Exec on pod" nil nil context namespace))
+            (c (kubed-read-container p "Container" t context namespace)))
+       (list p command c context namespace stdin tty args))))
   (pop-to-buffer
    (apply #'make-comint "kubed-exec" kubed-kubectl-program nil
           "exec" pod
