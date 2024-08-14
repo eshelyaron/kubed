@@ -2963,8 +2963,8 @@ resource types."
 
 (defun kubed-resource-names (type &optional context namespace)
   "Return list of Kuberenetes resources of type TYPE in NAMESPACE via CONTEXT."
-  (let ((context (or context (kubed-current-context)))
-        (namespace (or namespace (kubed-current-namespace context))))
+  (let ((context (or context (kubed-local-context)))
+        (namespace (or namespace (kubed-local-namespace context))))
     (unless (kubed--alist type context namespace)
       (let ((proc (kubed-update type context namespace)))
         (while (process-live-p proc)
