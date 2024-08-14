@@ -1703,8 +1703,8 @@ Switch to namespace `%s' and proceed?" kubed-list-namespace))
   ((name &optional context)
    "Create Kubernetes namespace NAME in CONTEXT.
 
-Interactively, prompt for NAME.  With a prefix argument, prompt for
-CONTEXT instead."
+Interactively, prompt for NAME and use the current context by default.
+With a prefix argument, prompt for CONTEXT instead."
    (interactive
     (let ((context nil))
       (dolist (arg (kubed-transient-args 'kubed-transient-create))
@@ -2344,17 +2344,23 @@ Optional argument DEFAULT is the minibuffer default argument."
                   (kubed-current-namespace context))))))
 
 ;;;###autoload
-(defun kubed-set-namespace (ns &optional context)
-  "Set default Kubernetes namespace in CONTEXT to NS."
+(defun kubed-set-namespace (namespace &optional context)
+  "Set default Kubernetes namespace in CONTEXT to NAMESPACE."
   (interactive
-   (list (kubed-read-namespace "Set namespace" (kubed-current-namespace))))
+   (let* ((context (kubed-local-context))
+          (context (if current-prefix-arg
+                       (kubed-read-context "Context" context)
+                     context)))
+     (list (kubed-read-namespace "Set namespace" (kubed-local-namespace context)
+                                 nil context)
+           context)))
   (unless (zerop
-           (apply #'call-process
-                  kubed-kubectl-program nil nil nil
-                  "config" "set-context" "--current" "--namespace" ns
-                  (when context (list "--context" context))))
-    (user-error "Failed to set Kubernetes namespace to `%s'" ns))
-  (message "Kubernetes namespace is now `%s'." ns))
+           (call-process
+            kubed-kubectl-program nil nil nil
+            "config" "set-context" (or context "--current")
+            "--namespace" namespace))
+    (user-error "Failed to set Kubernetes namespace to `%s'" namespace))
+  (message "Kubernetes namespace is now `%s'." namespace))
 
 (defcustom kubed-read-resource-definition-filter-files-by-kind t
   "Whether to filter file completion candidates by their Kubernetes \"kind\".
