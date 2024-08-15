@@ -10,7 +10,14 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.3.2 in development
+* Version 0.3.2 on 2024-08-15
+
+** Improved support for multiple contexts and namespaces
+
+Each buffer now has a local context and namespace, which acts as the
+default/current context and namespace when you invoke Kubed commands
+from that buffer.  See new manual section "Context and Namespace" for
+more details.
 
 ** New filter operators ~<~ and ~>~ in resource tables.
 
