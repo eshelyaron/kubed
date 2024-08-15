@@ -231,6 +231,17 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
   "Return non-nil if TYPE is a namespaced resource type in context CONTEXT."
   (member type (kubed-api-resources context t)))
 
+(defun kubed--namespace (context &optional prompt-p)
+  "Return Kubernetes namespace for CONTEXT.
+
+Non-nil optional argument PROMPT-P says to prompt for a namespace."
+  (let ((ns (if (equal context (kubed-local-context))
+                (kubed-local-namespace)
+              (kubed-current-namespace context))))
+    (if prompt-p
+        (kubed-read-namespace "Namespace" ns nil context)
+      ns)))
+
 ;;;###autoload
 (defun kubed-display-resource
     (type resource context &optional namespace)
@@ -261,12 +272,8 @@ prompt for CONTEXT as well."
      (unless type
        (setq type (kubed-read-resource-type "Type of resource to display"
                                             nil context)))
-     (when (and (kubed-namespaced-p type context) (null namespace))
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+     (when (and (null namespace) (kubed-namespaced-p type context))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list type (kubed-read-resource-name type "Display" nil nil
                                           context namespace)
            context namespace)))
@@ -1042,12 +1049,8 @@ prompt for CONTEXT as well."
      (unless type
        (setq type (kubed-read-resource-type "Type of resource to delete"
                                             nil context)))
-     (when (and (kubed-namespaced-p type context) (null namespace))
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+     (when (and (null namespace) (kubed-namespaced-p type context))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list type (kubed-read-resource-name type "Delete" nil t
                                           context namespace)
            context namespace)))
@@ -1108,12 +1111,8 @@ prompt for CONTEXT as well."
      (unless type
        (setq type (kubed-read-resource-type "Type of resource to edit"
                                             nil context)))
-     (when (and (kubed-namespaced-p type context) (null namespace))
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+     (when (and (null namespace) (kubed-namespaced-p type context))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list type (kubed-read-resource-name type "Edit" nil nil
                                           context namespace)
            context namespace)))
@@ -1292,11 +1291,7 @@ Interactively, use the current context.  With a prefix argument
                                 (kubed-read-context "Context" cxt)
                               cxt))))
                   (unless namespace
-                    (setq namespace
-                          (let ((cur (kubed-local-namespace)))
-                            (if current-prefix-arg
-                                (kubed-read-namespace "Namespace" cur nil context)
-                              cur))))
+                    (setq namespace (kubed--namespace context current-prefix-arg)))
                   (list (,read-fun "Display" nil nil context namespace) context namespace))
              `(let ((context nil))
                 (dolist (arg (kubed-transient-args 'kubed-transient-display))
@@ -1313,7 +1308,7 @@ Interactively, use the current context.  With a prefix argument
          (let ((context (or context (kubed-local-context))))
            (kubed-display-resource
             ,(symbol-name plrl-var) ,resource context
-            . ,(when namespaced '((or namespace (kubed-local-namespace)))))))
+            . ,(when namespaced '((or namespace (kubed--namespace context)))))))
 
        (defun ,edt-name (,resource &optional context . ,(when namespaced '(namespace)))
          ,(if namespaced
@@ -1343,11 +1338,7 @@ Interactively, use the current context.  With a prefix argument
                                 (kubed-read-context "Context" cxt)
                               cxt))))
                   (unless namespace
-                    (setq namespace
-                          (let ((cur (kubed-local-namespace)))
-                            (if current-prefix-arg
-                                (kubed-read-namespace "Namespace" cur nil context)
-                              cur))))
+                    (setq namespace (kubed--namespace context current-prefix-arg)))
                   (list (,read-fun "Edit" nil nil context namespace) context namespace))
              `(let ((context nil))
                 (dolist (arg (kubed-transient-args 'kubed-transient-edit))
@@ -1364,7 +1355,7 @@ Interactively, use the current context.  With a prefix argument
          (let ((context (or context (kubed-local-context))))
            (kubed-edit-resource
             ,(symbol-name plrl-var) ,resource context
-            . ,(when namespaced '((or namespace (kubed-local-namespace)))))))
+            . ,(when namespaced '((or namespace (kubed--namespace context)))))))
 
        (defun ,dlt-name (,plrl-var &optional context
                                    . ,(when namespaced '(namespace)))
@@ -1395,11 +1386,7 @@ Interactively, use the current context.  With a prefix argument
                                 (kubed-read-context "Context" cxt)
                               cxt))))
                   (unless namespace
-                    (setq namespace
-                          (let ((cur (kubed-local-namespace)))
-                            (if current-prefix-arg
-                                (kubed-read-namespace "Namespace" cur nil context)
-                              cur))))
+                    (setq namespace (kubed--namespace context current-prefix-arg)))
                   (list (,read-fun "Delete" nil t context namespace) context namespace))
              `(let ((context nil))
                 (dolist (arg (kubed-transient-args 'kubed-transient-delete))
@@ -1418,7 +1405,7 @@ Interactively, use the current context.  With a prefix argument
          (let ((context (or context (kubed-local-context))))
            (kubed-delete-resources
             ,(symbol-name plrl-var) ,plrl-var context
-            . ,(when namespaced '((or namespace (kubed-local-namespace)))))))
+            . ,(when namespaced '((or namespace (kubed--namespace context)))))))
 
        ,(if crt-spec `(defun ,crt-name . ,crt-spec)
           `(defun ,crt-name (definition &optional context)
@@ -1549,11 +1536,7 @@ Interactively, use the current context.  With a prefix argument
                               (kubed-read-context "Context" context)
                             context)))
             (list context
-                  . ,(when namespaced
-                       '((let ((cur (kubed-local-namespace)))
-                           (if current-prefix-arg
-                               (kubed-read-namespace "Namespace" cur nil context)
-                             cur)))))))
+                  . ,(when namespaced '((kubed--namespace context current-prefix-arg))))))
          (pop-to-buffer (,buff-fun context . ,(when namespaced '(namespace)))))
 
        (defun ,expl-cmd ()
@@ -1800,17 +1783,13 @@ defaulting to the current namespace."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list name
            (kubed-read-cronjob
             (format "Create job `%s' from cronjob" name) nil nil context namespace)
            context namespace)))
-  (let ((context (or context (kubed-local-context)))
-        (namespace (or namespace (kubed-local-namespace))))
+  (let* ((context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed--namespace context))))
     (unless (zerop
              (call-process
               kubed-kubectl-program nil nil nil
@@ -1856,11 +1835,7 @@ defaulting to the current namespace."
                     (kubed-read-context "Context" cxt)
                   cxt))))
       (unless namespace
-        (setq namespace
-              (let ((cur (kubed-local-namespace)))
-                (if current-prefix-arg
-                    (kubed-read-namespace "Namespace" cur nil context)
-                  cur))))
+        (setq namespace (kubed--namespace context current-prefix-arg)))
       (unless image
         (setq image (kubed-read-container-image "Image to run in job")))
       (list name image context namespace command)))
@@ -1901,17 +1876,13 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list (kubed-read-deployment "Watch deployment status" nil nil
                                   context namespace)
            context namespace)))
-  (let ((buf (get-buffer-create "*kubed-deployment-status*"))
-        (context (or context (kubed-local-context)))
-        (namespace (or namespace (kubed-local-namespace))))
+  (let* ((buf (get-buffer-create "*kubed-deployment-status*"))
+         (context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed--namespace context))))
     (with-current-buffer buf (erase-buffer))
     (make-process
      :name "*kubed-watch-deployment-status*"
@@ -1955,16 +1926,12 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list (kubed-read-deployment "Restart deployment" nil nil
                                   context namespace)
            context namespace)))
-  (let ((context (or context (kubed-local-context)))
-        (namespace (or namespace (kubed-local-namespace))))
+  (let* ((context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed--namespace context))))
     (unless (zerop
              (apply #'call-process
                     kubed-kubectl-program nil nil nil
@@ -2041,14 +2008,10 @@ optional command to run in the images."
                     (kubed-read-context "Context" cxt)
                   cxt))))
       (unless namespace
-        (setq namespace
-              (let ((cur (kubed-local-namespace)))
-                (if current-prefix-arg
-                    (kubed-read-namespace "Namespace" cur nil context)
-                  cur))))
+        (setq namespace (kubed--namespace context current-prefix-arg)))
       (list name images context namespace replicas port command)))
-   (let ((context (or context (kubed-local-context)))
-         (namespace (or namespace (kubed-local-namespace))))
+   (let* ((context (or context (kubed-local-context)))
+          (namespace (or namespace (kubed--namespace context))))
      (unless (zerop
               (apply #'call-process
                      kubed-kubectl-program nil nil nil
@@ -2158,11 +2121,7 @@ overrides the default command IMAGE runs."
                     (kubed-read-context "Context" cxt)
                   cxt))))
       (unless namespace
-        (setq namespace
-              (let ((cur (kubed-local-namespace)))
-                (if current-prefix-arg
-                    (kubed-read-namespace "Namespace" cur nil context)
-                  cur))))
+        (setq namespace (kubed--namespace context current-prefix-arg)))
       (unless image
         (setq image (kubed-read-container-image "Image to run")))
       (unless schedule
@@ -2252,11 +2211,7 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
                     (kubed-read-context "Context" cxt)
                   cxt))))
       (unless namespace
-        (setq namespace
-              (let ((cur (kubed-local-namespace)))
-                (if current-prefix-arg
-                    (kubed-read-namespace "Namespace" cur nil context)
-                  cur))))
+        (setq namespace (kubed--namespace context current-prefix-arg)))
       (unless rules (setq rules (kubed-read-ingress-rules)))
       (list name rules context namespace class default-backend annotations)))
    (unless (zerop
@@ -2295,6 +2250,7 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
   (car (process-lines kubed-kubectl-program "config" "current-context")))
 
 (defun kubed-default-context-and-namespace ()
+  "Return default context and namespace as a cons cell (CONTEXT . NAMESPACE)."
   (or kubed-default-context-and-namespace
       (setq kubed-default-context-and-namespace
             (let ((context (kubed-current-context)))
@@ -2302,9 +2258,11 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
                     (kubed-current-namespace context))))))
 
 (defun kubed-default-context ()
+  "Return default `kubectl' context."
   (car (kubed-default-context-and-namespace)))
 
 (defun kubed-default-namespace ()
+  "Return default Kubernetes namespace in the default context."
   (cdr (kubed-default-context-and-namespace)))
 
 (defun kubed-local-context ()
@@ -2423,7 +2381,7 @@ prefix argument, prompt for CONTEXT as well."
           (context (if current-prefix-arg
                        (kubed-read-context "Context" context)
                      context)))
-     (list (kubed-read-namespace "Set namespace" (kubed-local-namespace)
+     (list (kubed-read-namespace "Set namespace" (kubed--namespace context)
                                  nil context)
            context)))
   (unless (zerop
@@ -2592,11 +2550,7 @@ for NAMESPACE; with a double prefix argument, also prompt for CONTEXT."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (setq pod (read-string "Run image in pod with name: "))
      (unless image
        (setq image (read-string "Image to run: " nil 'kubed-container-image-history)))
@@ -2692,15 +2646,12 @@ use it; otherwise, fall back to prompting."
           (context (if (equal current-prefix-arg '(16))
                        (kubed-read-context "Context" context)
                      context))
-          (n (kubed-local-namespace))
-          (n (if current-prefix-arg
-                 (kubed-read-namespace "Namespace" n nil context)
-               n))
+          (n (kubed--namespace context current-prefix-arg))
           (p (kubed-read-pod "Show logs for pod" nil nil context n))
           (c (kubed-read-container p "Container" nil context n)))
      (list p c context n)))
   (let* ((context (or context (kubed-local-context)))
-         (namespace (or namespace (kubed-local-namespace)))
+         (namespace (or namespace (kubed--namespace context)))
          (buf (generate-new-buffer
                (format "*kubed-logs %s[%s] in %s[%s]*"
                        pod container namespace context))))
@@ -2732,7 +2683,7 @@ use it; otherwise, fall back to prompting."
           (c (if (equal current-prefix-arg '(16))
                  (kubed-read-context "Context" c)
                c))
-          (n (kubed-local-namespace))
+          (n (kubed--namespace c current-prefix-arg))
           (n (if current-prefix-arg
                  (kubed-read-namespace "Namespace" n nil c)
                n))
@@ -2848,11 +2799,7 @@ STDIN and TTY are t interactively."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (let* ((p (kubed-read-pod "Exec on pod" nil nil context namespace))
             (c (kubed-read-container p "Container" t context namespace)))
        (list p c context namespace stdin tty))))
@@ -2951,11 +2898,7 @@ STDIN and TTY are t interactively."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (unless command
        (setq args    (split-string-and-unquote
                       (read-string "Execute command: "))
@@ -3011,11 +2954,7 @@ for CONTEXT."
                    (kubed-read-context "Context" cxt)
                  cxt))))
      (unless namespace
-       (setq namespace
-             (let ((cur (kubed-local-namespace)))
-               (if current-prefix-arg
-                   (kubed-read-namespace "Namespace" cur nil context)
-                 cur))))
+       (setq namespace (kubed--namespace context current-prefix-arg)))
      (list (kubed-read-resource-type "Resource type to patch" nil context)
            (kubed-read-resource-name type "Resource to patch" nil nil context namespace)
            (kubed-read-patch) context namespace strategy)))
@@ -3059,8 +2998,8 @@ resource types."
 
 (defun kubed-resource-names (type &optional context namespace)
   "Return list of Kuberenetes resources of type TYPE in NAMESPACE via CONTEXT."
-  (let ((context (or context (kubed-local-context)))
-        (namespace (or namespace (kubed-local-namespace))))
+  (let* ((context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed--namespace context))))
     (unless (kubed--alist type context namespace)
       (let ((proc (kubed-update type context namespace)))
         (while (process-live-p proc)

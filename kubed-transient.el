@@ -21,12 +21,13 @@
 
 (defun kubed-transient-read-namespace (prompt _initial-input _history)
   "Prompt with PROMPT for Kubernetes namespace."
-  (let ((context (seq-some (lambda (s)
-                             (and (cl-typep s 'transient-infix)
-                                  (equal (oref s argument) "--context=")
-                                  (oref s value)))
-                           transient--suffixes)))
-    (kubed-read-namespace prompt (kubed-current-namespace context) nil context)))
+  (let ((context (or (seq-some (lambda (s)
+                                 (and (cl-typep s 'transient-infix)
+                                      (equal (oref s argument) "--context=")
+                                      (oref s value)))
+                               transient--suffixes)
+                     (kubed-local-context))))
+    (kubed-read-namespace prompt (kubed--namespace context) nil context)))
 
 (defun kubed-transient-read-ingressclass (prompt _initial-input _history)
   "Prompt with PROMPT for Kubernetes ingress class."
