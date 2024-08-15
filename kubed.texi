@@ -174,6 +174,7 @@ The following sections describe in detail the various Kubed commands.
 @menu
 * Display Resource::
 * Browse Resources::
+* Context and Namespace::
 * Transient Menus::
 @end menu
 
@@ -202,6 +203,8 @@ this command assumes you want to display a resource that is in the
 current namespace, but if you invoke @code{kubed-display-resource}
 with a prefix argument (@kbd{C-u}) and choose a namespaced resource
 type, then it also lets you select the namespace of the resource.
+With a double prefix argument, it lets you select which
+@command{kubectl} context to use too.  @xref{Context and Namespace}.
 
 If you have @code{kubed-prefix-map} bound to @kbd{C-c k}, you can
 invoke @code{kubed-display-resource} with @kbd{C-c k @key{RET}}.  This
@@ -511,6 +514,57 @@ This filter matches resources named either @samp{spam} or
 While entering a filter in the minibuffer, @kbd{@key{TAB}} completion
 is available for column names and values.  To clear the filter, just
 exit the minibuffer with an empty input.
+
+@node Context and Namespace
+@section Context and Namespace
+
+Kubed uses @command{kubectl} to interact with Kubernetes clusters, and
+you can use multiple @command{kubectl} @dfn{contexts} in Kubed to work
+with different Kubernetes clusters in parallel.  Within each context,
+Kubed lets you work in multiple @dfn{namespaces} too.  In general,
+each buffer has its own @dfn{local context} and @dfn{local namespace},
+and Kubed commands use these local context and namespace by default.
+This is similar to how different buffers have different values of
+@code{default-directory} (@pxref{File Names,,,emacs}), and how that
+affects commands that interact with the filesystem.
+
+For Kubed buffers that display a Kubernetes resource (@pxref{Display
+Resource}) or a list of resources (@pxref{Browse Resources}), the
+buffer-local context and namespace are the context and namespace of
+the resources the buffer displays.  For non-Kubed buffers, the user
+option @code{kubed-default-context-and-namespace} determines the
+default local context and namespace.
+
+@defopt kubed-default-context-and-namespace
+Default @command{kubectl} context and Kubernetes namespace for Kubed
+commands.  The value of this option is either a cons cell
+@w{@code{(@var{context} . @var{namespace})}} or @code{nil}.  If it is
+@code{nil}, Kubed initializes this option to a cons cell with the
+current @command{kubectl} context and namespace for that context on
+the first time Kubed consults this option.
+@end defopt
+
+As mentioned above, most Kubed commands use the local context and
+namespace by default---it is also conventional for Kubed commands to
+let you choose a different namespace if you invoke them with a prefix
+argument (@kbd{C-u}), and to also let you choose a different context
+if you invoke them with a double prefix argument (@kbd{C-u C-u}).
+
+The following functions return the local context and namespace for
+buffer in which you call them:
+
+@defun kubed-local-context
+Return the local @command{kubectl} context for the current buffer.
+@end defun
+
+@defun kubed-local-namespace
+Return the local Kubernetes namespace for the current buffer.
+@end defun
+
+@defun kubed-local-context-and-namespace
+Return the local context and namespace for the current buffer as a
+cons cell @w{@code{(@var{context} . @var{namespace})}}.
+@end defun
 
 @node Transient Menus
 @section Transient Menus
