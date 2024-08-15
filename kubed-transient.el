@@ -94,7 +94,9 @@
     ("-t" "Allocate TTY" "--tty")]
    ["Options"
     ("-n" "Namespace" "--namespace="
-     :prompt "Namespace" :reader kubed-transient-read-namespace)]]
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-attach nil nil
                    :value '("--stdin" "--tty")
@@ -152,10 +154,12 @@
     ("-i" "Open stdin" "--stdin")
     ("-t" "Allocate TTY" "--tty")
     ("-R" "Remove after exit" "--rm")
-    ("-C" "Override container command" "--command")]
+    ("-c" "Override container command" "--command")]
    ["Options"
     ("-n" "Namespace" "--namespace="
      :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
     ("-I" "Image" "--image="
      :prompt "Image to deploy: ")
     ("-p" "Port" "--port="
@@ -178,7 +182,9 @@
     ("!" "Command line" kubed-kubectl-command)]
    ["Options"
     ("-f" "Definition file" "--filename="
-     :reader kubed-transient-read-resource-definition-file-name)]]
+     :reader kubed-transient-read-resource-definition-file-name)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)]]
   (interactive)
   (transient-setup 'kubed-transient-apply nil nil
                    :scope '("apply")))
