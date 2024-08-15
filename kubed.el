@@ -2365,7 +2365,7 @@ Optional argument DEFAULT is the minibuffer default argument."
   (or kubed-list-namespace
       (nth 3 kubed-display-resource-info)
       (kubed--static-if (<= 31 emacs-major-version)
-          (and (string-match "[/:]kubernetes:.*%\\([a-z0-9-]+\\):"
+          (and (string-match "[/|]kubernetes:.*%\\([a-z0-9-]+\\):"
                              default-directory)
                (match-string 1 default-directory)))
       (kubed-current-namespace (or context (kubed-local-context)))))
@@ -2383,7 +2383,7 @@ Optional argument DEFAULT is the minibuffer default argument."
       (let ((context (kubed-current-context)))
         (cons context
               (or (kubed--static-if (<= 31 emacs-major-version)
-                      (and (string-match "[/:]kubernetes:.*%\\([a-z0-9-]+\\):"
+                      (and (string-match "[/|]kubernetes:.*%\\([a-z0-9-]+\\):"
                                          default-directory)
                            (match-string 1 default-directory)))
                   (kubed-current-namespace context))))))
