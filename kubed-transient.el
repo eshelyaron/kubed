@@ -426,7 +426,7 @@
     ("!" "Command line" kubed-list-kubectl-command :transient t)
     ("+" "Create" kubed-list-create :transient t)
     ("/" "Filter" kubed-list-set-filter :transient t)
-    ("G" "Update" kubed-list-update :transient t)]
+    ("g" "Update" kubed-list-update :transient t)]
    ["Table"
     ("|" "Fit column" kubed-list-fit-column-width-to-content :transient t)
     ("}" "Widen column" tabulated-list-widen-current-column :transient t)

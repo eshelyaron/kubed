@@ -365,9 +365,9 @@ Edit the resource at point (@code{kubed-list-edit}).
 @findex kubed-list-patch
 @item P
 Patch the resource at point (@code{kubed-list-patch}).
-@kindex G
+@kindex g
 @findex kubed-list-update
-@item G
+@item g
 Update the resources list by fetching new information from Kubernetes
 (@code{kubed-list-update}).
 @kindex /

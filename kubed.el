@@ -933,7 +933,7 @@ number at point, or the numeric prefix argument if you provide one."
   "x" #'kubed-list-delete-marked
   "e" #'kubed-list-edit
   "!" #'kubed-list-kubectl-command
-  "G" #'kubed-list-update
+  "g" #'kubed-list-update
   "/" #'kubed-list-set-filter
   "|" #'kubed-list-fit-column-width-to-content
   "d" #'kubed-list-mark-for-deletion
