@@ -358,7 +358,7 @@ Display the resource at point in another window without selecting it
 @item D
 Delete the resource at point (@code{kubed-list-delete}).
 @kindex e
-@findex kubed-list-e
+@findex kubed-list-edit
 @item e
 Edit the resource at point (@code{kubed-list-edit}).
 @kindex P
