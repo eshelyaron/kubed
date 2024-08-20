@@ -67,7 +67,7 @@ Perform completion action A on string S with predicate P."
                      lines)))
         ;; `code' encodes "completion directives", as follows:
         ;; #b000001: An error occurred, ignore completions.
-        ;; #b000010: Don't add space after completion.
+        ;; #b000010: Don't add space after completion.  (TODO.)
         ;; #b000100: Don't fall back to file completion.
         ;; #b001000: Completions are really file extension filters.
         ;; #b010000: Complete directory names.
