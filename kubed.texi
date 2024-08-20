@@ -440,6 +440,13 @@ Widen the column at point
 In addition, you can bookmark any Kubed resources list buffer with the
 usual @kbd{C-x r m}.  @xref{Bookmarks,,,emacs}.
 
+Note that @code{kubed-list-mode} (and its type-specific derivatives)
+bind the @kbd{g} key, which is commonly bound to @code{revert-buffer},
+to @code{kubed-list-update}.  The difference between these commands is
+that @code{revert-buffer} only refreshes the list display, without
+fetching updated data from Kubernetes.  You can still invoke
+@code{revert-buffer} with @kbd{C-x x g} or @kbd{M-x}, if you need it.
+
 @menu
 * List Filter::
 @end menu
