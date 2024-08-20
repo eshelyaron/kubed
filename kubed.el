@@ -856,9 +856,17 @@ regardless of QUIET."
               0)))
     (user-error "No Kubernetes resource at point")))
 
+(defun kubed-list-logs (click)
+  "Show logs for Kubernetes resource at CLICK."
+  (interactive (list last-nonmenu-event) kubed-list-mode)
+  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+      (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
+                  t t nil t)
+    (user-error "No Kubernetes resource at point")))
+
 (defun kubed-list-create (definition &optional kind)
   "Create Kubernetes resource of kind KIND from definition file DEFINITION."
-  (interactive (list (kubed-read-resource-definition-file-name)))
+  (interactive (list (kubed-read-resource-definition-file-name)) kubed-list-mode)
   (kubed-create definition kind kubed-list-context)
   (kubed-list-update t))
 
@@ -1002,7 +1010,7 @@ mode as their parent."
                   (while (not (eobp))
                     (unless (eq (char-after) ?\s)
                       (push (cons (tabulated-list-get-id)
-                                  ;; Preserve mark properties.
+                                  ;; Preserve mark text properties.
                                   (buffer-substring (point) (1+ (point))))
                             marks))
                     (forward-line)))
@@ -1205,7 +1213,8 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
   add DEFINITION to `kubed-RESOURCE-menu-map' with the label LABEL.
 - `:plural PLURAL': specify plural form of RESOURCE, as a symbol.  If
   you omit this keyword argument, the plural form defaults to RESOURCE
-  followed by \"s\"."
+  followed by \"s\".
+- `:logs t': generate `kubed-logs-for-RESOURCE' command."
   (declare (indent 2))
   (let ((plrl-var (intern (format "%Ss"                         resource)))
         (read-fun (intern (format "kubed-read-%S"               resource)))
@@ -1214,7 +1223,8 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         (crt-name (intern (format "kubed-create-%S"             resource)))
         (map-name (intern (format "kubed-%S-prefix-map"         resource)))
         (menu-map (intern (format "kubed-%S-menu-map"           resource)))
-        (namespaced t)
+        (logs-cmd (intern (format "kubed-logs-for-%S"           resource)))
+        (namespaced t) (logs nil)
         (keyword nil)
         frmt-var buff-fun list-cmd expl-cmd dlt-name mod-name
         ctxt-fun crt-spec prf-keys hist-var)
@@ -1224,6 +1234,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
       (setq keyword (pop commands))
       (cond
        ((eq keyword :namespaced) (setq namespaced (pop commands)))
+       ((eq keyword :logs)       (setq logs       (pop commands)))
        ((eq keyword :create)     (setq crt-spec   (pop commands)))
        ((eq keyword :prefix)     (setq prf-keys   (pop commands)))
        ((eq keyword :plural)     (setq plrl-var   (pop commands)))
@@ -1238,6 +1249,9 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
           dlt-name (intern (format "kubed-delete-%S"        plrl-var))
           mod-name (intern (format "kubed-%S-mode"          plrl-var))
           ctxt-fun (intern (format "kubed-%S-context-menu"  plrl-var)))
+
+    (when logs (push `("L" "Show Logs" ,logs-cmd) prf-keys))
+
     ;; Generate code.
     `(progn
        (setf (alist-get ,(symbol-name plrl-var) kubed--columns nil nil #'string=)
@@ -1431,6 +1445,56 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
              (kubed-create definition ,(symbol-name resource) context)
              (kubed-update ,(symbol-name plrl-var) context)))
 
+       ,@(when logs
+           `((defun ,logs-cmd
+                 ( ,resource &optional context namespace
+                   container follow limit prefix since tail timestamps)
+               ,(format "Show logs for Kuberenetes %S %s."
+                        resource (upcase (symbol-name resource)))
+               (interactive
+                (let ( ,resource context namespace
+                       container follow limit prefix since tail timestamps)
+                  (dolist (arg (kubed-transient-args
+                                ',(intern (format "kubed-transient-logs-for-%S" resource))))
+                    (cond
+                     ((string-match "--namespace=\\(.+\\)" arg)
+                      (setq namespace (match-string 1 arg)))
+                     ((string-match "--context=\\(.+\\)" arg)
+                      (setq context (match-string 1 arg)))
+                     ((string-match "--limit-bytes=\\(.+\\)" arg)
+                      (setq limit (string-to-number (match-string 1 arg))))
+                     ((string-match "--tail=\\(.+\\)" arg)
+                      (setq tail (string-to-number (match-string 1 arg))))
+                     ((string-match "--since-time=\\(.+\\)" arg)
+                      (setq since (match-string 1 arg)))
+                     ((equal "--all-containers" arg) (setq container t))
+                     ((equal "--follow" arg) (setq follow t))
+                     ((equal "--prefix" arg) (setq prefix t))
+                     ((equal "--timestamps" arg) (setq timestamps t))))
+                  (unless context
+                    (setq context
+                          (let ((cxt (kubed-local-context)))
+                            (if (equal current-prefix-arg '(16))
+                                (kubed-read-context "Context" cxt)
+                              cxt))))
+                  (unless namespace
+                    (setq namespace (kubed--namespace context current-prefix-arg)))
+                  (setq ,resource (,read-fun "Show logs for"
+                                             (and (equal context kubed-list-context)
+                                                  (equal namespace kubed-list-namespace)
+                                                  (equal ,(symbol-name plrl-var) kubed-list-type)
+                                                  (tabulated-list-get-id (mouse-set-point last-nonmenu-event)))
+                                             nil context namespace))
+                  (list ,resource context namespace
+                        ,(if (eq resource 'pod)
+                             '(or container
+                                  (kubed-read-container pod "Container" t
+                                                        context namespace))
+                           'container)
+                        follow limit prefix since tail timestamps)))
+               (kubed-logs ,(symbol-name plrl-var) ,resource context namespace container
+                           follow limit prefix since tail timestamps))))
+
        ,@(let ((click-var (gensym "click")))
            (mapcar
             (pcase-lambda (`(,suffix ,_key ,desc . ,body))
@@ -1445,6 +1509,8 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
        (defvar-keymap ,(intern (format "kubed-%S-mode-map" plrl-var))
          :doc ,(format "Keymap for `%S" mod-name)
          "+" #',crt-name
+         ,@(when logs `("l" #'kubed-list-logs
+                        "L" #',(intern (format "kubed-transient-logs-for-%S" resource))))
          ,@(mapcan
             (pcase-lambda (`(,suffix ,key ,_desc . ,_body))
               (when key
@@ -1611,8 +1677,8 @@ Interactively, use the current context.  With a prefix argument
                 (number-to-string (1+ (seq-count (lambda (c) (= c ?,)) cs)))))
             :right-align t)
      (starttime ".status.startTime" 20))
-  :prefix (("L" "Show Logs"    kubed-logs)
-           ("A" "Attach"       kubed-attach)
+  :logs t
+  :prefix (("A" "Attach"       kubed-attach)
            ("X" "Execute"      kubed-exec)
            ("F" "Forward Port" kubed-forward-port-to-pod))
   (dired "C-d" "Start Dired in"
@@ -1661,10 +1727,6 @@ Switch to namespace `%s' and proceed?" kubed-list-namespace))
                          (read-string "Execute command: "))))
           (kubed-exec pod (car cmd-args) container kubed-list-context
                       kubed-list-namespace t t (cdr cmd-args))))
-  (logs "l" "Show logs for a container of"
-        (kubed-logs pod (kubed-read-container pod "Container" t
-                                              kubed-list-context kubed-list-namespace)
-                    kubed-list-context kubed-list-namespace))
   (forward-port "F" "Forward local network port to remote port of"
                 (let ((local-port (read-number "Forward local port: ")))
                   (kubed-forward-port-to-pod
@@ -1750,7 +1812,8 @@ With a prefix argument, prompt for CONTEXT instead."
      (clusterip ".spec.clusterIP" 16)
      (externalip ".spec.externalIPs[*]" 16)
      (ports ".spec.ports[*].port" 6)
-     (creationtimestamp ".metadata.creationTimestamp" 20)))
+     (creationtimestamp ".metadata.creationTimestamp" 20))
+  :logs t)
 
 ;;;###autoload (autoload 'kubed-display-secret "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-secret "kubed" nil t)
@@ -1808,6 +1871,7 @@ defaulting to the current namespace."
 (kubed-define-resource job
     ((status ".status.conditions[0].type" 10) (starttime ".status.startTime" 20))
   :prefix (("c" "Create from Cron" kubed-create-job-from-cronjob))
+  :logs t
   :create
   ((name image &optional context namespace command)
    "Create Kubernetes job with name NAME executing COMMAND in IMAGE.
@@ -1973,6 +2037,7 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
      ( creationtimestamp ".metadata.creationTimestamp" 20))
   :prefix (("R" "Restart" kubed-restart-deployment)
            ("W" "Watch"   kubed-watch-deployment-status))
+  :logs t
   :create
   ((name images &optional context namespace replicas port command)
    "Deploy IMAGES to Kubernetes in deployment with name NAME.
@@ -2047,7 +2112,8 @@ optional command to run in the images."
            :right-align t)
      (ownerkind ".metadata.ownerReferences[0].kind" 12)
      (ownername ".metadata.ownerReferences[0].name" 16)
-     (creationtimestamp ".metadata.creationTimestamp" 20)))
+     (creationtimestamp ".metadata.creationTimestamp" 20))
+  :logs t)
 
 ;;;###autoload (autoload 'kubed-display-statefulset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-statefulset "kubed" nil t)
@@ -2062,7 +2128,8 @@ optional command to run in the images."
            :right-align t)
      (ownerkind ".metadata.ownerReferences[0].kind" 12)
      (ownername ".metadata.ownerReferences[0].name" 16)
-     (creationtimestamp ".metadata.creationTimestamp" 20)))
+     (creationtimestamp ".metadata.creationTimestamp" 20))
+  :logs t)
 
 (defun kubed-cronjob-suspended-p (cj &optional context ns)
   "Return non-nil if cronjob CJ in CONTEXT and namespace NS is suspended."
@@ -2336,6 +2403,8 @@ Optional argument DEFAULT is the minibuffer default argument."
 
 (defun kubed-current-namespace (&optional context)
   "Return current Kubernetes namespace for context CONTEXT."
+  ;; FIXME: If no namespace is configured as the default for CONTEXT,
+  ;; suggest setting one.
   (car (process-lines
         kubed-kubectl-program
         "config" "view" "-o"
@@ -2639,29 +2708,78 @@ use it; otherwise, fall back to prompting."
                       nil t nil nil default))))
 
 ;;;###autoload
-(defun kubed-logs (pod container context namespace)
-  "Show logs for container CONTAINER in Kubernetes pod POD."
+(defun kubed-logs
+    ( type resource &optional context namespace
+      container follow limit prefix since tail timestamps)
+  "Show logs for container CONTAINER in Kubernetes RESOURCE of type TYPE.
+
+Optional argument CONTEXT is the `kubectl' context to use; NAMESPACE is
+the namespace for RESOURCE; CONTAINER is the name of the container in
+RESOURCE to show logs for, or t which specifies all relevant containers.
+
+With a prefix argument, prompt for NAMESPACE; with a double prefix
+argument, also prompt for CONTEXT."
   (interactive
-   (let* ((context (kubed-local-context))
-          (context (if (equal current-prefix-arg '(16))
-                       (kubed-read-context "Context" context)
-                     context))
-          (n (kubed--namespace context current-prefix-arg))
-          (p (kubed-read-pod "Show logs for pod" nil nil context n))
-          (c (kubed-read-container p "Container" nil context n)))
-     (list p c context n)))
+   (let ( type resource context namespace
+          container follow limit prefix since tail timestamps)
+     (dolist (arg (kubed-transient-args 'kubed-transient-logs))
+       (cond
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--limit-bytes=\\(.+\\)" arg)
+         (setq limit (string-to-number (match-string 1 arg))))
+        ((string-match "--tail=\\(.+\\)" arg)
+         (setq tail (string-to-number (match-string 1 arg))))
+        ((string-match "--since-time=\\(.+\\)" arg)
+         (setq since (match-string 1 arg)))
+        ((equal "--all-containers" arg) (setq container t))
+        ((equal "--follow" arg) (setq follow t))
+        ((equal "--prefix" arg) (setq prefix t))
+        ((equal "--timestamps" arg) (setq timestamps t))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (setq type (kubed-read-resource-type "Type of resource to display"
+                                          nil context))
+     (unless namespace
+       (setq namespace (kubed--namespace context current-prefix-arg)))
+     (setq resource (kubed-read-resource-name type "Show logs for" nil nil
+                                              context namespace))
+     (list type resource context namespace
+           (or container
+               (and (string= type "pods")
+                    (kubed-read-container resource "Container" t
+                                          context namespace)))
+           follow limit prefix since tail timestamps)))
   (let* ((context (or context (kubed-local-context)))
          (namespace (or namespace (kubed--namespace context)))
          (buf (generate-new-buffer
-               (format "*kubed-logs %s[%s] in %s[%s]*"
-                       pod container namespace context))))
+               (format "*kubed-logs %s/%s%s in %s[%s]*"
+                       type resource
+                       (cond
+                        ((stringp container) (concat "[" container "]"))
+                        (container "[all containers]")
+                        (t ""))
+                       namespace context))))
     (with-current-buffer buf (run-hooks 'kubed-logs-setup-hook))
-    (message "Getting logs for container `%s' in pod `%s' in namespace `%s'..."
-             container pod namespace)
-    (start-process "*kubed-logs*" buf
-                   kubed-kubectl-program "logs"
-                   "-f" "-c" container pod
-                   "-n" namespace "--context" context)
+    (apply #'start-process "*kubed-logs*" buf
+           kubed-kubectl-program "logs" (concat type "/" resource)
+           "--context" context "-n" namespace
+           (append
+            (cond
+             ((stringp container) (list "-c" container))
+             (container '("--all-containers")))
+            (when follow '("--follow"))
+            (when prefix '("--prefix"))
+            (when timestamps '("--timestamps"))
+            (when since (list "--since" since))
+            (when tail (list "--tail" (number-to-string tail)))
+            (when limit (list "--limit-bytes" (number-to-string limit)))))
     (display-buffer buf)))
 
 (defvar kubed-port-forward-process-alist nil

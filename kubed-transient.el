@@ -47,24 +47,106 @@
 (transient-define-prefix kubed-transient ()
   "Perform Kubernetes operation."
   ["Kubernetes"
-   ;; First column.
    [ :pad-keys t
      ("RET" "Display" kubed-transient-display)
      ("+" "Create"  kubed-transient-create)
      ("*" "Apply"   kubed-transient-apply)
-     ("e" "Edit"    kubed-transient-edit)
      ("D" "Delete"  kubed-transient-delete)]
-   ;; Second column.
-   [("r" "Run"     kubed-transient-run)
+   [("e" "Edit"    kubed-transient-edit)
+    ("r" "Run"     kubed-transient-run)
     ("a" "Attach"  kubed-transient-attach)
-    ("X" "Exec"    kubed-transient-exec)
-    ("R" "Rollout" kubed-transient-rollout)]
-   ;; Third column.
-   [("d" "Diff"    kubed-transient-diff)
+    ("X" "Exec"    kubed-transient-exec)]
+   [("l" "Logs"    kubed-transient-logs)
+    ("d" "Diff"    kubed-transient-diff)
     ("P" "Patch"   kubed-transient-patch)
-    ("R" "Rollout" kubed-transient-rollout)
-    ("E" "Explain" kubed-explain)
+    ("R" "Rollout" kubed-transient-rollout)]
+   [("E" "Explain" kubed-explain)
     ("!" "Command line" kubed-kubectl-command)]])
+
+(defmacro kubed-transient-logs-for-resource (resource &optional plural)
+  "Define transient menu for showing logs for Kuberenetes RESOURCE.
+
+Optional argument PLURAL is the plural form of RESOURCE.  If nil, it
+defaults to \"RESOURCEs\"."
+  (let ((name (intern (concat "kubed-transient-logs-for-" resource))))
+    `(transient-define-prefix ,name (&optional value)
+       ,(format "Show logs for a Kubernetes %s." resource)
+       [,(format "Kubernetes Logs for %s\n" (capitalize resource))
+        ["Actions"
+         ("l" "Show Logs" ,(intern (concat "kubed-logs-for-" resource)))
+         ("!" "Command line" kubed-kubectl-command)]
+        ["Options"
+         ("-n" "Namespace" "--namespace="
+          :prompt "Namespace" :reader kubed-transient-read-namespace)
+         ("-C" "Context" "--context="
+          :prompt "Context" :reader kubed-transient-read-context)
+         ("-b" "Limit bytes" "--limit-bytes="
+          :prompt "Byte limit: " :reader transient-read-number-N+)
+         ("-t" "Limit lines" "--tail="
+          :prompt "Byte limit: " :reader transient-read-number-N+)
+         ("-S" "Since time" "--since-time="
+          :prompt "Since time: " :reader transient-read-date)]
+        ["Switches"
+         ("-A" "All containers" "--all-containers")
+         ("-f" "Stream logs" "--follow")
+         ("-P" "Add pod and container" "--prefix")
+         ("-T" "Add timestamps" "--timestamps")]]
+       (interactive
+        (list (kubed-transient-args 'kubed-transient-logs)))
+       (transient-setup ',name nil nil
+                        :value value
+                        :scope '("logs" ,(concat (or plural
+                                                     (concat resource "s"))
+                                                 "/"))))))
+
+;;;###autoload (autoload 'kubed-transient-logs-for-pod "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "pod")
+
+;;;###autoload (autoload 'kubed-transient-logs-for-deployment "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "deployment")
+
+;;;###autoload (autoload 'kubed-transient-logs-for-service "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "service")
+
+;;;###autoload (autoload 'kubed-transient-logs-for-job "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "job")
+
+;;;###autoload (autoload 'kubed-transient-logs-for-replicaset "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "replicaset")
+
+;;;###autoload (autoload 'kubed-transient-logs-for-statefulset "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "statefulset")
+
+;;;###autoload (autoload 'kubed-transient-logs "kubed-transient" nil t)
+(transient-define-prefix kubed-transient-logs ()
+  "Show logs for containers running in Kubernetes."
+  ["Kubernetes Logs\n"
+   ["Kinds"
+    ("p" "Pod" kubed-transient-logs-for-pod)
+    ("d" "Deployment" kubed-transient-logs-for-deployment)
+    ("j" "Job" kubed-transient-logs-for-job)
+    ("s" "Service" kubed-transient-logs-for-service)
+    ("l" "Any type" kubed-logs)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-n" "Namespace" "--namespace="
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
+    ("-b" "Limit bytes" "--limit-bytes="
+     :prompt "Byte limit: " :reader transient-read-number-N+)
+    ("-t" "Limit lines" "--tail="
+     :prompt "Byte limit: " :reader transient-read-number-N+)
+    ("-S" "Since time" "--since-time="
+     :prompt "Since time: " :reader transient-read-date)]
+   ["Switches"
+    ("-A" "All containers" "--all-containers")
+    ("-f" "Stream logs" "--follow")
+    ("-P" "Add pod and container" "--prefix")
+    ("-T" "Add timestamps" "--timestamps")]]
+  (interactive)
+  (transient-setup 'kubed-transient-logs nil nil
+                   :scope '("logs")))
 
 ;;;###autoload (autoload 'kubed-transient-rollout "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-rollout ()
@@ -410,6 +492,7 @@
 ;;;###autoload (autoload 'kubed-list-transient "kubed-transient" nil t)
 (transient-define-prefix kubed-list-transient ()
   "Help for Kubernetes resource list buffers."
+  ;; TODO: Add a type-specific group with `:setup-children'.
   ["Kubernetes Resources:"
    ["Select"
     :pad-keys t
