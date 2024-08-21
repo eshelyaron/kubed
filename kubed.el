@@ -499,6 +499,9 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 (defvar-local kubed-list-context nil)
 (defvar-local kubed-list-namespace nil)
 
+(defvar-local kubed-list-transient-extra-suffixes nil
+  "List of transient suffixes for the type of resources in current buffer.")
+
 (defun kubed-list-go-to-line (id)
   "Go to beginning of table line with ID."
   (let ((pos nil))
@@ -1212,7 +1215,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
 - `:create (ARGLIST DOCSTRING INTERACTIVE BODY...)': specialize the
   resource creation command, `kubed-create-RESOURCE'.  ARGLIST,
   DOCSTRING, INTERACTIVE and BODY have the same meaning as in `defun'.
-- `:prefix ((KEY LABEL DEFINITION) ...)': additional keybinding for the
+- `:prefix ((KEY LABEL DEFINITION)...)': additional keybinding for the
   prefix keymap `kubed-RESOURCE-prefix-map' and the
   `kubed-RESOURCE-menu-map' menu.  Each element (KEY LABEL DEFINITION)
   says to bind KEY to DEFINITION in `kubed-RESOURCE-menu-map', and to
@@ -1220,7 +1223,9 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
 - `:plural PLURAL': specify plural form of RESOURCE, as a symbol.  If
   you omit this keyword argument, the plural form defaults to RESOURCE
   followed by \"s\".
-- `:logs t': generate `kubed-logs-for-RESOURCE' command."
+- `:logs t': generate `kubed-logs-for-RESOURCE' command.
+- `:suffixes (SUFFIX...)': add type-specific transient suffixes to
+  `kubed-list-transient'."
   (declare (indent 2))
   (let ((plrl-var (intern (format "%Ss"                         resource)))
         (read-fun (intern (format "kubed-read-%S"               resource)))
@@ -1234,7 +1239,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         (namespaced t) (logs nil)
         (keyword nil)
         frmt-var buff-fun list-cmd expl-cmd dlt-name mod-name
-        ctxt-fun crt-spec prf-keys hist-var)
+        ctxt-fun crt-spec prf-keys hist-var trs-cols)
 
     ;; Process keyword arguments.
     (while (keywordp (car commands))
@@ -1245,6 +1250,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
        ((eq keyword :create)     (setq crt-spec   (pop commands)))
        ((eq keyword :prefix)     (setq prf-keys   (pop commands)))
        ((eq keyword :plural)     (setq plrl-var   (pop commands)))
+       ((eq keyword :suffixes)   (setq trs-cols   (pop commands)))
        ;; FIXME: Add error for unknown keywords.
        (t (pop commands))))
 
@@ -1571,6 +1577,8 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
          (setq kubed-list-filter-history-variable
                ',(intern (format "kubed-%S-filter-history" plrl-var))
                kubed-list-type ,(symbol-name plrl-var)
+               ,@(when trs-cols
+                   `(kubed-list-transient-extra-suffixes ',trs-cols))
                tabulated-list-padding 2
                tabulated-list-format (apply #'vector (cons kubed-name-column ,frmt-var)))
          (add-hook 'context-menu-functions #',ctxt-fun nil t)
@@ -1690,6 +1698,13 @@ Interactively, use the current context.  With a prefix argument
   :prefix (("A" "Attach"       kubed-attach)
            ("X" "Execute"      kubed-exec)
            ("F" "Forward Port" kubed-forward-port-to-pod))
+  :suffixes ([("L" "Logs" kubed-transient-logs-for-pod)
+              ("X" "Exec" kubed-pods-exec)
+              ("a" "Attach" kubed-pods-attach)]
+             [("C-d" "Dired" kubed-pods-dired)
+              ("s" "Shell" kubed-pods-shell)
+              ("F" "Forward port" kubed-pods-forward-port)
+              :pad-keys t])
   (dired "C-d" "Start Dired in"
          ;; Explicit namespace in Kuberenetes remote file names
          ;; introduced in Emacs 31.  See Bug#59797.
@@ -2050,6 +2065,9 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
   :prefix (("R" "Restart" kubed-restart-deployment)
            ("W" "Watch"   kubed-watch-deployment-status))
   :logs t
+  :suffixes ([("L" "Logs" kubed-transient-logs-for-deployment)
+              ("W" "Watch" kubed-deployments-watch)
+              ("R" "Restart" kubed-deployments-restart)])
   :create
   ((name images &optional context namespace replicas port command)
    "Deploy IMAGES to Kubernetes in deployment with name NAME.

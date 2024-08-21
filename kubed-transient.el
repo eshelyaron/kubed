@@ -499,28 +499,33 @@ defaults to \"RESOURCEs\"."
     ("RET" "Select" kubed-list-select-resource)
     ("C-o" "Display" kubed-list-display-resource :transient t)
     ("e" "Edit" kubed-list-edit :transient t)
-    ("w" "Copy name" kubed-list-copy-as-kill :transient t)]
+    ("w" "Copy name" kubed-list-copy-as-kill :transient t)
+    ("!" "Command line" kubed-list-kubectl-command :transient t)]
    ["Delete"
     ("D" "Delete" kubed-list-delete :transient t)
     ("d" "Mark" kubed-list-mark-for-deletion :transient t)
     ("u" "Unmark" kubed-list-unmark :transient t)
-    ("x" "Delete marked" kubed-list-delete-marked :transient t)]
-   ["Other"
-    ("!" "Command line" kubed-list-kubectl-command :transient t)
-    ("+" "Create" kubed-list-create :transient t)
-    ("/" "Filter" kubed-list-set-filter :transient t)
-    ("g" "Update" kubed-list-update :transient t)]
+    ("x" "Delete marked" kubed-list-delete-marked :transient t)
+    ("+" "Create" kubed-list-create :transient t)]
    ["Table"
     ("|" "Fit column" kubed-list-fit-column-width-to-content :transient t)
     ("}" "Widen column" tabulated-list-widen-current-column :transient t)
     ("{" "Narrow column" tabulated-list-narrow-current-column :transient t)
-    ("S" "Sort" tabulated-list-sort :transient t)]
+    ("S" "Sort" tabulated-list-sort :transient t)
+    ("/" "Filter" kubed-list-set-filter :transient t)]
    ["Movement"
     :pad-keys t
     ("n" "Next line" next-line :transient t)
     ("p" "Previous line" previous-line :transient t)
     ("TAB" "Next column" kubed-list-next-column :transient t)
-    ("S-TAB" "Previous column" kubed-list-previous-column :transient t)]])
+    ("S-TAB" "Previous column" kubed-list-previous-column :transient t)
+    ("g" "Update" kubed-list-update :transient t)]]
+  ["Type Specific"
+   :class transient-columns
+   :setup-children
+   (lambda (_)
+     (transient-parse-suffixes 'kubed-list-transient
+                               kubed-list-transient-extra-suffixes))])
 
 (provide 'kubed-transient)
 ;;; kubed-transient.el ends here
