@@ -15,6 +15,15 @@
 (require 'kubed)
 (require 'transient)
 
+(defun kubed-transient-read-date (prompt default _history)
+  "Prompt with PROMPT for a date, defaulting to DEFAULT.
+
+Return an RFC3339 string representation of the selected date."
+  (require 'org)
+  (when (fboundp 'org-read-date)
+    (format-time-string "%Y-%m-%dT%H:%M:%S%:z"
+                        (org-read-date 'with-time t nil prompt default))))
+
 (defun kubed-transient-read-context (prompt _initial-input _history)
   "Prompt with PROMPT for Kubernetes context."
   (kubed-read-context prompt (kubed-local-context)))
@@ -85,7 +94,7 @@ defaults to \"RESOURCEs\"."
          ("-t" "Limit lines" "--tail="
           :prompt "Byte limit: " :reader transient-read-number-N+)
          ("-S" "Since time" "--since-time="
-          :prompt "Since time: " :reader transient-read-date)]
+          :prompt "Since time: " :reader kubed-transient-read-date)]
         ["Switches"
          ("-A" "All containers" "--all-containers")
          ("-f" "Stream logs" "--follow")
@@ -138,7 +147,7 @@ defaults to \"RESOURCEs\"."
     ("-t" "Limit lines" "--tail="
      :prompt "Byte limit: " :reader transient-read-number-N+)
     ("-S" "Since time" "--since-time="
-     :prompt "Since time: " :reader transient-read-date)]
+     :prompt "Since time: " :reader kubed-transient-read-date)]
    ["Switches"
     ("-A" "All containers" "--all-containers")
     ("-f" "Stream logs" "--follow")

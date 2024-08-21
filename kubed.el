@@ -2809,7 +2809,7 @@ argument, also prompt for CONTEXT."
             (when follow '("--follow"))
             (when prefix '("--prefix"))
             (when timestamps '("--timestamps"))
-            (when since (list "--since" since))
+            (when since (list "--since-time" since))
             (when tail (list "--tail" (number-to-string tail)))
             (when limit (list "--limit-bytes" (number-to-string limit)))))
     (display-buffer buf)))
