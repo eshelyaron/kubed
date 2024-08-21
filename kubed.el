@@ -1698,13 +1698,13 @@ Interactively, use the current context.  With a prefix argument
   :prefix (("A" "Attach"       kubed-attach)
            ("X" "Execute"      kubed-exec)
            ("F" "Forward Port" kubed-forward-port-to-pod))
-  :suffixes ([("L" "Logs" kubed-transient-logs-for-pod)
-              ("X" "Exec" kubed-pods-exec)
-              ("a" "Attach" kubed-pods-attach)]
-             [("C-d" "Dired" kubed-pods-dired)
-              ("s" "Shell" kubed-pods-shell)
-              ("F" "Forward port" kubed-pods-forward-port)
-              :pad-keys t])
+  :suffixes ([ ("L" "Logs" kubed-transient-logs-for-pod)
+               ("X" "Exec" kubed-pods-exec)
+               ("a" "Attach" kubed-pods-attach)]
+             [ :pad-keys t
+               ("C-d" "Dired" kubed-pods-dired)
+               ("s" "Shell" kubed-pods-shell)
+               ("F" "Forward port" kubed-pods-forward-port)])
   (dired "C-d" "Start Dired in"
          ;; Explicit namespace in Kuberenetes remote file names
          ;; introduced in Emacs 31.  See Bug#59797.
