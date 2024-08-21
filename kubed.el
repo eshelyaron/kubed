@@ -929,7 +929,13 @@ number at point, or the numeric prefix argument if you provide one."
   (tabulated-list-print t)
   (tabulated-list-init-header))
 
-(declare-function kubed-list-transient "kubed-transient" ())
+(declare-function kubed-list-transient                 "kubed-transient" ())
+(declare-function kubed-transient-logs-for-pod         "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-deployment  "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-statefulset "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-replicaset  "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-job         "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-service     "kubed-transient" (val))
 
 (defvar-keymap kubed-list-mode-map
   :doc "Common keymap for Kubernetes resource list buffers."
@@ -1224,6 +1230,7 @@ Other keyword arguments that go between PROPERTIES and COMMANDS are:
         (map-name (intern (format "kubed-%S-prefix-map"         resource)))
         (menu-map (intern (format "kubed-%S-menu-map"           resource)))
         (logs-cmd (intern (format "kubed-logs-for-%S"           resource)))
+        (logs-trs (intern (format "kubed-transient-logs-for-%S" resource)))
         (namespaced t) (logs nil)
         (keyword nil)
         frmt-var buff-fun list-cmd expl-cmd dlt-name mod-name
@@ -1455,7 +1462,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                 (let ( ,resource context namespace
                        container follow limit prefix since tail timestamps)
                   (dolist (arg (kubed-transient-args
-                                ',(intern (format "kubed-transient-logs-for-%S" resource))))
+                                ',logs-trs))
                     (cond
                      ((string-match "--namespace=\\(.+\\)" arg)
                       (setq namespace (match-string 1 arg)))
@@ -1509,8 +1516,9 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
        (defvar-keymap ,(intern (format "kubed-%S-mode-map" plrl-var))
          :doc ,(format "Keymap for `%S" mod-name)
          "+" #',crt-name
-         ,@(when logs `("l" #'kubed-list-logs
-                        "L" #',(intern (format "kubed-transient-logs-for-%S" resource))))
+         ,@(when logs
+             `("l" #'kubed-list-logs
+               "L" #',logs-trs))
          ,@(mapcan
             (pcase-lambda (`(,suffix ,key ,_desc . ,_body))
               (when key
@@ -1651,6 +1659,7 @@ Interactively, use the current context.  With a prefix argument
 ;;;###autoload (autoload 'kubed-delete-pods "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-pods "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-pod "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-pod "kubed" nil t)
 ;;;###autoload (autoload 'kubed-pod-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource pod
     ((phase ".status.phase" 10
@@ -1806,6 +1815,7 @@ With a prefix argument, prompt for CONTEXT instead."
 ;;;###autoload (autoload 'kubed-delete-services "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-services "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-service "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-service "kubed" nil t)
 ;;;###autoload (autoload 'kubed-service-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource service
     ((type ".spec.type" 12)
@@ -1867,6 +1877,7 @@ defaulting to the current namespace."
 ;;;###autoload (autoload 'kubed-delete-jobs "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-jobs "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-job "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-job "kubed" nil t)
 ;;;###autoload (autoload 'kubed-job-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource job
     ((status ".status.conditions[0].type" 10) (starttime ".status.startTime" 20))
@@ -2016,6 +2027,7 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
 ;;;###autoload (autoload 'kubed-delete-deployments "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-deployments "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-deployment "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-deployment-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource deployment
     (( ready ".status.readyReplicas" 6
@@ -2104,6 +2116,7 @@ optional command to run in the images."
 ;;;###autoload (autoload 'kubed-delete-replicasets "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-replicasets "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-replicaset "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-replicaset-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource replicaset
     ((reps ".status.replicas" 4
@@ -2120,6 +2133,7 @@ optional command to run in the images."
 ;;;###autoload (autoload 'kubed-delete-statefulsets "kubed" nil t)
 ;;;###autoload (autoload 'kubed-list-statefulsets "kubed" nil t)
 ;;;###autoload (autoload 'kubed-create-statefulset "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-statefulset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-statefulset-prefix-map "kubed" nil t 'keymap)
 (kubed-define-resource statefulset
     ((reps ".status.replicas" 4
