@@ -576,6 +576,34 @@ cons cell @w{@code{(@var{context} . @var{namespace})}}.
 @node Transient Menus
 @section Transient Menus
 
+Kubed provides a set of keyboard-driven @dfn{transient menus}
+(@pxref{Top,,,transient}) that you can use to explore and invoke
+various commands.  Transient menus show you available commands along
+with their key bindings, which helps you use many different commands
+without the need to remember the key bindings for all them.
+Additionally, the transient menus allow you to specify options and
+switches for the commands you invoke, which may not be available when
+invoking these commands directly.  For example, while you can invoke
+command @code{kubed-logs} directly to view logs from a container
+running in Kubernetes, the ``Kubernetes Logs'' transient menu which
+you open with @code{kubed-transient-logs} lets you set a maximum
+number of logs to retrieve, among other knobs and handles.
+
+Command @code{kubed-transient} opens the Kubed ``root'' transient
+menu, which is a dispatch that lets you access different transient
+menus, such as the aforementioned ``Kubernetes Logs'' transient menu.
+It's a good idea to bind @code{kubed-transient} to a convenient key,
+either in the global keymap or under @code{kubed-prefix-map}:
+
+@lisp
+(keymap-global-set "s-k" #'kubed-transient)
+(keymap-set kubed-prefix-map "k" #'kubed-transient)
+@end lisp
+
+In Kubed resource list buffers, type @kbd{?} to pop up a transient
+menu with commands that are specific to the type of resources the
+buffer displays.  @xref{Browse Resources}.
+
 @node Extending Kubed
 @chapter Extending Kubed
 
