@@ -238,6 +238,9 @@ Non-nil optional argument PROMPT-P says to prompt for a namespace."
   (let ((ns (if (equal context (kubed-local-context))
                 (kubed-local-namespace)
               (kubed-current-namespace context))))
+    ;; If CONTEXT is another context that has no configured namespace,
+    ;; then NS is nil and we must prompt.
+    (unless ns (setq prompt-p t))
     (if prompt-p
         (kubed-read-namespace "Namespace" ns nil context)
       ns)))
@@ -2354,7 +2357,10 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
       (setq kubed-default-context-and-namespace
             (let ((context (kubed-current-context)))
               (cons context
-                    (kubed-current-namespace context))))))
+                    (or (kubed-current-namespace context)
+                        (kubed-read-namespace
+                         (format "Default namespace for context `%s'" context)
+                         nil nil context)))))))
 
 (defun kubed-default-context ()
   "Return default `kubectl' context."
@@ -2434,14 +2440,14 @@ Optional argument DEFAULT is the minibuffer default argument."
     (display-buffer buf)))
 
 (defun kubed-current-namespace (&optional context)
-  "Return current Kubernetes namespace for context CONTEXT."
-  ;; FIXME: If no namespace is configured as the default for CONTEXT,
-  ;; suggest setting one.
-  (car (process-lines
-        kubed-kubectl-program
-        "config" "view" "-o"
-        (format "jsonpath={.contexts[?(.name==\"%s\")].context.namespace}"
-                (or context (kubed-current-context))))))
+  "Return current Kubernetes namespace for context CONTEXT.
+
+If no namespace is configured for CONTEXT, return nil."
+  (or (car (process-lines
+            kubed-kubectl-program
+            "config" "view" "-o"
+            (format "jsonpath={.contexts[?(.name==\"%s\")].context.namespace}"
+                    (or context (kubed-current-context)))))))
 
 (defun kubed-local-namespace ()
   "Return Kubernetes namespace in CONTEXT local to the current buffer."
@@ -3146,22 +3152,21 @@ resource types."
            (when only-namespaced '("--namespaced=true"))
            (when context (list (concat "--context=" context)))))))
 
-(defun kubed-resource-names (type &optional context namespace)
+(defun kubed-resource-names (type context &optional namespace)
   "Return list of Kuberenetes resources of type TYPE in NAMESPACE via CONTEXT."
-  (let* ((context (or context (kubed-local-context)))
-         (namespace (or namespace (kubed--namespace context))))
-    (unless (kubed--alist type context namespace)
-      (let ((proc (kubed-update type context namespace)))
-        (while (process-live-p proc)
-          (accept-process-output proc 1))))
-    (mapcar #'car (alist-get 'resources (kubed--alist type context namespace)))))
+  (unless (kubed--alist type context namespace)
+    (let ((proc (kubed-update type context namespace)))
+      (while (process-live-p proc)
+        (accept-process-output proc 1))))
+  (mapcar #'car (alist-get 'resources (kubed--alist type context namespace))))
 
 (defun kubed-read-resource-name (type prompt &optional default multi context namespace)
   "Prompt with PROMPT for Kubernetes resource name of type TYPE.
 
-Optional argument DEFAULT is the minibuffer default argument.  Non-nil
-optional argument NAMESPACE says to use names from NAMESPACE as
-completion candidates instead of the current namespace."
+Optional argument DEFAULT is the minibuffer default argument; non-nil
+MULTI says to read multiple names and return them as a list; CONTEXT is
+the `kubectl' context to use, defaulting to the local context; and
+NAMESPACE is the namespace to use, or nil if TYPE is non-namespaced."
   (funcall
    (if multi #'completing-read-multiple #'completing-read)
    (format-prompt prompt default)
@@ -3170,7 +3175,8 @@ completion candidates instead of the current namespace."
        (if (eq a 'metadata)
            `(metadata (category . ,(intern (concat "kubernetes-" type))))
          (when (eq table 'unset)
-           (setq table (kubed-resource-names type context namespace)))
+           (setq table (kubed-resource-names
+                        type (or context (kubed-local-context)) namespace)))
          (complete-with-action a table s p))))
    nil 'confirm nil (intern (concat "kubed-" type "-history")) default))
 
