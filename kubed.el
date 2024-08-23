@@ -2323,6 +2323,15 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
   "Return current Kubernetes context."
   (car (process-lines kubed-kubectl-program "config" "current-context")))
 
+(defun kubed-read-default-namespace-non-empty (context)
+  "Prompt for a default namespace for CONTEXT, refusing empty input."
+  (let ((ns (kubed-read-namespace
+             (format "Default namespace for context `%s'" context)
+             nil nil context)))
+    (when (string-empty-p ns)
+      (user-error "You didn't specify a default namespace"))
+    ns))
+
 (defun kubed-default-context-and-namespace ()
   "Return default context and namespace as a cons cell (CONTEXT . NAMESPACE)."
   (or kubed-default-context-and-namespace
@@ -2330,9 +2339,7 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
             (let ((context (kubed-current-context)))
               (cons context
                     (or (kubed-current-namespace context)
-                        (kubed-read-namespace
-                         (format "Default namespace for context `%s'" context)
-                         nil nil context)))))))
+                        (kubed-read-default-namespace-non-empty context)))))))
 
 (defun kubed-default-context ()
   "Return default `kubectl' context."
