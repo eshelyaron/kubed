@@ -10,6 +10,30 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.4.0 in development
+
+** ~kubed-list-update~ is now bound to ~g~ in resource table buffers.
+
+Previously, this command was bound to the slightly less convenient
+capital ~G~.  This shadows the default binding of ~revert-buffer~,
+which you can still invoke via ~C-x x g~.
+
+** Introduce resource type specific bindings in resource table help transients.
+
+The help transient menu that you get with ~?~ in resource table
+buffers now includes type-specific bindings, such as the ~F~ key for
+forwarding a local port to a pod in the Kubed pods buffer.
+
+** New transient menu ~kubed-transient-logs~ for showing container logs.
+
+** Improved Tramp integration.
+
+Kubed now uses a bespoke Tramp method to open Dired and Shell buffers
+inside Kuberenetes pods.  The main advantage of this method is the
+ability to work with multiple ~kubectl~ contexts simultaneously.  This
+method requires Tramp 2.7 or later, Kubed will complain if you try to
+start remote Dired or Shell with an earlier Tramp version.
+
 * Version 0.3.2 on 2024-08-15
 
 ** Improved support for multiple contexts and namespaces
