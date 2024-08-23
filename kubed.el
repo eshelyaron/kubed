@@ -12,16 +12,16 @@
 ;;; Commentary:
 
 ;; This library defines commands for interacting with Kubernetes
-;; resources, such as Kuberenetes pods, services, deployments, and more.
+;; resources, such as Kubernetes pods, services, deployments, and more.
 ;;
-;; Use `kubed-display-pod' to display a Kuberenetes pod,
+;; Use `kubed-display-pod' to display a Kubernetes pod,
 ;; `kubed-edit-pod' to edit it, `kubed-delete-pods' to delete it, and
 ;; `kubed-list-pods' to see a menu of all pods.  You can create new pods
 ;; from YAML or JSON files with `kubed-create-pod'.
 ;;
 ;; Similar commands are defined for other types of resources as well.
 ;;
-;; This library interacts with Kuberenetes via `kubectl', and uses the
+;; This library interacts with Kubernetes via `kubectl', and uses the
 ;; current `kubectl' context and namespace by default.  To change your
 ;; current context or namespace, use commands `kubed-use-context' and
 ;; `kubed-set-namespace' respectively; you can also interact with
@@ -187,7 +187,7 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
 (put 'kubed-display-resource-info 'permanent-local t)
 
 (defun kubed-display-resource-revert (&optional _ _)
-  "Clear and populate current Kuberenetes resource buffer."
+  "Clear and populate current Kubernetes resource buffer."
   (seq-let (type name context namespace)
       kubed-display-resource-info
     (let ((inhibit-read-only t)
@@ -364,7 +364,7 @@ prompt for CONTEXT as well."
 
 The first argument, SYMBOL, is ignored.  You can use this function as
 the `completion-predicate' property of commands that you define that
-should only be available in buffers that display Kuberenetes resources."
+should only be available in buffers that display Kubernetes resources."
   (buffer-local-value 'kubed-display-resource-mode buffer))
 
 (dolist (cmd '(kubed-display-resource-jump-to-list
@@ -379,7 +379,7 @@ should only be available in buffers that display Kuberenetes resources."
   "C-c C-c" #'kubed-display-resource-replace)
 
 (define-minor-mode kubed-display-resource-mode
-  "Minor mode for buffers that display a Kuberenetes resource."
+  "Minor mode for buffers that display a Kubernetes resource."
   :interactive nil
   :lighter " Kubed"
   (when kubed-display-resource-mode
@@ -1451,7 +1451,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
            `((defun ,logs-cmd
                  ( ,resource &optional context namespace
                    container follow limit prefix since tail timestamps)
-               ,(format "Show logs for Kuberenetes %S %s."
+               ,(format "Show logs for Kubernetes %S %s."
                         resource (upcase (symbol-name resource)))
                (interactive
                 (let ( ,resource context namespace
@@ -3128,7 +3128,7 @@ resource types."
            (when context (list (concat "--context=" context)))))))
 
 (defun kubed-resource-names (type context &optional namespace)
-  "Return list of Kuberenetes resources of type TYPE in NAMESPACE via CONTEXT."
+  "Return list of Kubernetes resources of type TYPE in NAMESPACE via CONTEXT."
   (unless (kubed--alist type context namespace)
     (let ((proc (kubed-update type context namespace)))
       (while (process-live-p proc)

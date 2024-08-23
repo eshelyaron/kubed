@@ -73,7 +73,7 @@ Return an RFC3339 string representation of the selected date."
     ("!" "Command line" kubed-kubectl-command)]])
 
 (defmacro kubed-transient-logs-for-resource (resource &optional plural)
-  "Define transient menu for showing logs for Kuberenetes RESOURCE.
+  "Define transient menu for showing logs for Kubernetes RESOURCE.
 
 Optional argument PLURAL is the plural form of RESOURCE.  If nil, it
 defaults to \"RESOURCEs\"."
