@@ -11,7 +11,7 @@
 @c %**end of header
 
 @copying
-This manual is for Kubed 0.4.0, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.4.1, a rich Emacs interface for Kubernetes.
 
 Copyright @copyright{} 2024 Eshel Yaron.
 
@@ -40,7 +40,7 @@ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
 @node Top
 @top Kubed: Kubernetes, Emacs, done!
 
-This manual is for Kubed 0.4.0, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.4.1, a rich Emacs interface for Kubernetes.
 
 @end ifnottex
 
@@ -128,11 +128,11 @@ use Kubed, depending on your use case.
 The two most important entry points for Kubed are
 @code{kubed-prefix-map} and @code{kubed-transient}:
 
+@anchor{Definition of kubed-prefix-map}
 @cindex global prefix keymap
 @cindex prefix keymap, global commands
 @cindex keymap, for global commands
 @defvr Keymap kubed-prefix-map
-@anchor{Definition of kubed-prefix-map}
 Keymap with bindings for many useful Kubed commands.
 @end defvr
 
@@ -153,8 +153,8 @@ You can also access all of the commands in @code{kubed-prefix-map} via
 the menu-bar @samp{Kubernetes} menu---to add this menu to your
 menu-bar, enable the global minor mode @code{kubed-menu-bar-mode}:
 
-@deffn {Minor Mode} kubed-menu-bar-mode
 @anchor{Definition of kubed-menu-bar-mode}
+@deffn {Minor Mode} kubed-menu-bar-mode
 Add @samp{Kubernetes} menu to your menu bar.
 @end deffn
 
