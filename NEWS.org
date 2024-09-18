@@ -10,6 +10,14 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.4.1 on in development
+
+** New command and transient menu for scaling deployments
+
+You can now scale Kubernetes deployment with Kubed, directly with
+~kubed-scale-deployment~, from the deployments table buffer, or via
+the new transient menu ~kubed-transient-scale-deployment~.
+
 * Version 0.4.0 on 2024-08-23
 
 ** ~kubed-list-update~ is now bound to ~g~ in resource table buffers.

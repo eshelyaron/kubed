@@ -1966,6 +1966,49 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
   :type 'boolean)
 
 ;;;###autoload
+(defun kubed-scale-deployment (dep reps &optional context namespace)
+  "Scale deployment DEP in namespace NAMESPACE via CONTEXT to REPS replicas.
+
+Optional argument CONTEXT is the `kubectl' context to use, defaulting to
+the current context; NAMESPACE is the namespace of DEP, defaulting to
+the current namespace.
+
+Interactively, prompt for DEP.  With a prefix argument, prompt for
+NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
+  (interactive
+   (let (reps context namespace)
+     (dolist (arg (kubed-transient-args 'kubed-transient-rollout))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))
+        ((string-match "--namespace=\\(.+\\)" arg)
+         (setq namespace (match-string 1 arg)))
+        ((string-match "--replicas=\\(.+\\)" arg)
+         (setq reps (string-to-number (match-string 1 arg))))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (unless namespace
+       (setq namespace (kubed--namespace context current-prefix-arg)))
+     (list (kubed-read-deployment "Scale deployment" nil nil context namespace)
+           (or reps (read-number "Number of replicas: ")) context namespace)))
+  (let* ((context (or context (kubed-local-context)))
+         (namespace (or namespace (kubed--namespace context))))
+    (unless (zerop
+             (apply #'call-process
+                    kubed-kubectl-program nil nil nil
+                    "scale" "deployment" dep
+                    "--replicas" (number-to-string reps)
+                    (append
+                     (when namespace (list "-n" namespace))
+                     (when context (list "--context" context)))))
+      (user-error "Failed to scale Kubernetes deployment `%s'" dep))
+    (message "Scaled Kubernetes deployment `%s' to %d replicas." dep reps)))
+
+;;;###autoload
 (defun kubed-restart-deployment (dep &optional context namespace)
   "Restart Kubernetes deployment DEP in namespace NAMESPACE via CONTEXT.
 
@@ -2038,11 +2081,13 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
        :right-align t)
      ( creationtimestamp ".metadata.creationTimestamp" 20))
   :prefix (("R" "Restart" kubed-restart-deployment)
-           ("W" "Watch"   kubed-watch-deployment-status))
+           ("W" "Watch"   kubed-watch-deployment-status)
+           ("$" "Scale"   kubed-scale-deployment))
   :logs t
   :suffixes ([("L" "Logs" kubed-transient-logs-for-deployment)
               ("W" "Watch" kubed-deployments-watch)
-              ("R" "Restart" kubed-deployments-restart)])
+              ("R" "Restart" kubed-deployments-restart)
+              ("$" "Scale" kubed-deployments-scale)])
   :create
   ((name images &optional context namespace replicas port command)
    "Deploy IMAGES to Kubernetes in deployment with name NAME.
@@ -2102,7 +2147,12 @@ optional command to run in the images."
              (message "Deployment restarting")
              (kubed-list-update t)))
   (watch "W" "Watch" (kubed-watch-deployment-status
-                      deployment kubed-list-context kubed-list-namespace)))
+                      deployment kubed-list-context kubed-list-namespace))
+  (scale "$" "Scale" (kubed-scale-deployment
+                      deployment (if current-prefix-arg
+                                     (prefix-numeric-value current-prefix-arg)
+                                   (read-number "Number of replicas: "))
+                      kubed-list-context kubed-list-namespace)))
 
 ;;;###autoload (autoload 'kubed-display-replicaset "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-replicaset "kubed" nil t)

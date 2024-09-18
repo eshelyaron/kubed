@@ -176,6 +176,7 @@ The following sections describe in detail the various Kubed commands.
 * Browse Resources::
 * Context and Namespace::
 * Transient Menus::
+* Scale Deployment::
 @end menu
 
 @node Display Resource
@@ -603,6 +604,35 @@ either in the global keymap or under @code{kubed-prefix-map}:
 In Kubed resource list buffers, type @kbd{?} to pop up a transient
 menu with commands that are specific to the type of resources the
 buffer displays.  @xref{Browse Resources}.
+
+@node Scale Deployment
+@section Scale Deployment
+
+You can use Kubed to @dfn{scale} Kubernetes a deployment, which means
+setting the size of the deployment in terms of the number of replicas
+it governs.
+
+@deffn Command kubed-scale-deployment
+Scale a Kubernetes deployment.
+@end deffn
+
+@code{kubed-scale-deployment} is bound to @kbd{$} in the
+@code{kubed-deployment-prefix-map}, so if you have
+@code{kubed-prefix-map} bound to @kbd{C-c k} then you can invoke it
+with @kbd{C-c k d $}.  @xref{Definition of kubed-prefix-map}.  This
+command prompts you for a deployment and then lets you select a new
+number of replicas for that deployment.  By default you are prompted
+for deployment in the local context and namespace (@pxref{Context and
+Namespace}); with a prefix argument, you can specify a different
+namespace; with a double prefix argument (@kbd{C-u C-u}), you can
+specify a different context too.
+
+In the deployments list buffer, you can scale the deployment at point
+by simply typing @kbd{$}.  @xref{Browse Resources}.
+
+Lastly, you can scale deployments using the transient menu
+@code{kubed-transient-scale-deployment}, which is available from the
+main Kubed transient by pressing @kbd{$}.  @xref{Transient Menus}.
 
 @node Extending Kubed
 @chapter Extending Kubed

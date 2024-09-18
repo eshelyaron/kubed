@@ -69,7 +69,8 @@ Return an RFC3339 string representation of the selected date."
     ("d" "Diff"    kubed-transient-diff)
     ("P" "Patch"   kubed-transient-patch)
     ("R" "Rollout" kubed-transient-rollout)]
-   [("E" "Explain" kubed-explain)
+   [("$" "Scale" kubed-transient-scale-deployment)
+    ("E" "Explain" kubed-explain)
     ("!" "Command line" kubed-kubectl-command)]])
 
 (defmacro kubed-transient-logs-for-resource (resource &optional plural)
@@ -156,6 +157,24 @@ defaults to \"RESOURCEs\"."
   (interactive)
   (transient-setup 'kubed-transient-logs nil nil
                    :scope '("logs")))
+
+;;;###autoload (autoload 'kubed-transient-scale-deployment "kubed-transient" nil t)
+(transient-define-prefix kubed-transient-scale-deployment ()
+  "Scale Kubernetes deployments."
+  ["Kubernetes Scale Deployment\n"
+   ["Action"
+    ("$" "Scale" kubed-scale-deployment)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-n" "Namespace" "--namespace="
+     :prompt "Namespace" :reader kubed-transient-read-namespace)
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
+    ("-r" "Replicas" "--replicas="
+     :prompt "Number of replicas: " :reader transient-read-number-N+)]]
+  (interactive)
+  (transient-setup 'kubed-transient-scale-deployment nil nil
+                   :scope '("scale" "deployment")))
 
 ;;;###autoload (autoload 'kubed-transient-rollout "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-rollout ()
