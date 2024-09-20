@@ -63,6 +63,13 @@ with your Kubernetes clusters and deployments with the full power of
 @command{kubectl}, and with the comfort and confidence of an intuitive
 interactive interface.
 
+@ifhtml
+@float
+@image{/assets/kubed-overview,,,Four different kinds of Kubed buffers in Emacs,.png}
+@caption{Pods, logs, shells, YAMLs, all in one integrated interface}
+@end float
+@end ifhtml
+
 You can use Kubed to:
 
 @itemize
@@ -148,6 +155,17 @@ With this binding in place, you can create a new Kubernetes resource
 with @kbd{C-c k +} and attach to a running pod with @kbd{C-c k p a}.
 The @kbd{C-c k} binding is just a suggestion of course, feel free to
 pick any key sequence you like.
+
+@ifhtml
+@float
+
+@image{/assets/kubed-prefix-map,,,Emacs which-key popup for kubed-prefix-map keymap,.png}
+
+@image{/assets/kubed-deployment-prefix-map,,,Emacs which-key popup for kubed-deployment-prefix-map,.png}
+
+@caption{Use @code{kubed-prefix-map} for quick access to the main Kubed commands}
+@end float
+@end ifhtml
 
 You can also access all of the commands in @code{kubed-prefix-map} via
 the menu-bar @samp{Kubernetes} menu---to add this menu to your
@@ -292,6 +310,13 @@ resource with @kbd{C-x x g} (@code{revert-buffer-quick}) and
 resource and want to restart from a clean slate.
 @end itemize
 
+@ifhtml
+@float
+@image{/assets/kubed-replace-diff,,,Displaying and editing YAML of Kubernetes pod with Kubed,.png}
+@caption{Type @kbd{C-x C-q} in a resource YAML buffer to edit it, @kbd{C-c C-c} to apply}
+@end float
+@end ifhtml
+
 @node Browse Resources
 @section Browse Resources
 
@@ -324,6 +349,13 @@ from a shared parent mode.  The pods list uses the
 @code{kubed-pods-mode} (@samp{Kubernetes Pods}) major mode, the list
 of Kubernetes deployments uses @code{kubed-deployments-mode}, and so
 on.
+
+@ifhtml
+@float
+@image{/assets/kubed-list-transient,,,Kubed pods list buffer with the help transient menu visible,.png}
+@caption{Browse your pods, deployments, and other resources with Kubed list buffers}
+@end float
+@end ifhtml
 
 The common parent major mode is @code{kubed-list-mode}:
 
@@ -590,6 +622,17 @@ running in Kubernetes, the ``Kubernetes Logs'' transient menu which
 you open with @code{kubed-transient-logs} lets you set a maximum
 number of logs to retrieve, among other knobs and handles.
 
+@ifhtml
+@float
+
+@image{/assets/kubed-transient,,,The Kubed main transient menu,.png}
+
+@image{/assets/kubed-transient-exec,,,The Kubed Exec transient menu,.png}
+
+@caption{Explore Kubed commands with transient menus}
+@end float
+@end ifhtml
+
 Command @code{kubed-transient} opens the Kubed ``root'' transient
 menu, which is a dispatch that lets you access different transient
 menus, such as the aforementioned ``Kubernetes Logs'' transient menu.
@@ -629,6 +672,13 @@ specify a different context too.
 
 In the deployments list buffer, you can scale the deployment at point
 by simply typing @kbd{$}.  @xref{Browse Resources}.
+
+@ifhtml
+@float
+@image{/assets/kubed-scale-deployments,,,Help transient menu in Kubed deployments list buffer,.png}
+@caption{Scale deployments with @kbd{$} in the deployments list buffer}
+@end float
+@end ifhtml
 
 Lastly, you can scale deployments using the transient menu
 @code{kubed-transient-scale-deployment}, which is available from the
