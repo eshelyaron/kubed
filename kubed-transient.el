@@ -70,6 +70,7 @@ Return an RFC3339 string representation of the selected date."
     ("P" "Patch"   kubed-transient-patch)
     ("R" "Rollout" kubed-transient-rollout)]
    [("$" "Scale" kubed-transient-scale-deployment)
+    (":" "Proxy" kubed-transient-proxy)
     ("E" "Explain" kubed-explain)
     ("!" "Command line" kubed-kubectl-command)]])
 
@@ -175,6 +176,31 @@ defaults to \"RESOURCEs\"."
   (interactive)
   (transient-setup 'kubed-transient-scale-deployment nil nil
                    :scope '("scale" "deployment")))
+
+;;;###autoload (autoload 'kubed-transient-proxy "kubed-transient" nil t)
+(transient-define-prefix kubed-transient-proxy ()
+  "Create a proxy between localhost and the Kubernetes API server."
+  ["Kubernetes Proxy\n"
+   ["Action"
+    (":" "Start proxy" kubed-proxy)
+    ("|" "Stop proxy" kubed-stop-proxy)
+    ("!" "Command line" kubed-kubectl-command)]
+   ["Options"
+    ("-C" "Context" "--context="
+     :prompt "Context" :reader kubed-transient-read-context)
+    ("-a" "Address" "--address="
+     :prompt "Local proxy address: ")
+    ("-p" "Port" "--port="
+     :prompt "Local proxy port: " :reader transient-read-number-N0)
+    ("-w" "WWW directory" "--www="
+     :prompt "Local WWW directory: " :reader transient-read-existing-directory)
+    ("-P" "WWW prefix" "--www-prefix="
+     :prompt "WWW prefix: ")
+    ("-A" "API prefix" "--api-prefix="
+     :prompt "API prefix: ")]]
+  (interactive)
+  (transient-setup 'kubed-transient-proxy nil nil
+                   :scope '("proxy")))
 
 ;;;###autoload (autoload 'kubed-transient-rollout "kubed-transient" nil t)
 (transient-define-prefix kubed-transient-rollout ()

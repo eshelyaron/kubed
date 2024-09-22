@@ -10,13 +10,21 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.4.1 on in development
+* Version 0.4.1 in development
 
 ** New command and transient menu for scaling deployments
 
 You can now scale Kubernetes deployment with Kubed, directly with
 ~kubed-scale-deployment~, from the deployments table buffer, or via
 the new transient menu ~kubed-transient-scale-deployment~.
+
+** New commands and transient menu for managing Kubernetes API proxies
+
+You can now use Kubed to create proxy servers that give access to the
+Kubernetes API server.  The commands ~kubed-proxy~ and
+~kubed-stop-proxy~ start and stop proxy servers, respectively.  The
+new transient menu ~kubed-transient-proxy~ lets specify options when
+starting a proxy, such as the local port to use.
 
 * Version 0.4.0 on 2024-08-23
 

@@ -3158,6 +3158,90 @@ for CONTEXT."
     (user-error "Patching `%s' failed" name))
   (message "Applying patch to `%s'...  Done." name))
 
+(defvar kubed--proxy-alist nil
+  "Alist associating `kubectl' context names and their proxy processes.")
+
+;;;###autoload
+(defun kubed-proxy
+    (&optional addr port api-prefix www-dir www-prefix context)
+  "Start a web server on localhost proxying the Kubernetes API server.
+
+ADDR and PORT are the local address and port to bind the proxy server
+to.  They default to 127.0.0.1 and 8001, respectively.  API-PREFIX is a
+prefix under which to proxy the Kubernetes API.  WWW-DIR is a local
+directory to serve under WWW-PREFIX, which defaults to \"/static/\".
+Lastly, CONTEXT is the the `kubectl' context to use, defaulting to the
+local context."
+  (interactive
+   (let ((addr nil) (port nil)
+         (api-prefix nil) (www-dir nil) (www-prefix nil)
+         (context nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-proxy))
+       (cond
+        ((string-match "--address=\\(.+\\)" arg)
+         (setq addr (match-string 1 arg)))
+        ((string-match "--port=\\(.+\\)" arg)
+         (setq port (string-to-number (match-string 1 arg))))
+        ((string-match "--api-prefix=\\(.+\\)" arg)
+         (setq api-prefix (match-string 1 arg)))
+        ((string-match "--www-dir=\\(.+\\)" arg)
+         (setq www-dir (match-string 1 arg)))
+        ((string-match "--www-prefix=\\(.+\\)" arg)
+         (setq www-prefix (match-string 1 arg)))
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (list addr port api-prefix www-dir www-prefix context)))
+  (let ((context (or context (kubed-local-context))))
+    (when-let ((proc (alist-get context kubed--proxy-alist
+                                nil nil #'string=))
+               ((process-live-p proc)))
+      (if (y-or-n-p (concat "Proxy already running for context `" context
+                            "'.  Stop it and start new proxy?"))
+          (kill-process proc)
+        (user-error "Proxy already running for context `%s'" context))
+      (message "Stopped proxy for context `%s'." context))
+    (setf (alist-get context kubed--proxy-alist nil nil #'string=)
+          (apply #'start-process (format "*kubed-proxy[%s]*" context) nil
+                 kubed-kubectl-program "proxy"
+                 "--context" context
+                 (append
+                  (when addr (list "--address" addr))
+                  (when port (list "--port" (number-to-string port)))
+                  (when api-prefix (list "--api-prefix" api-prefix))
+                  (when www-dir (list "--www-dir" www-dir))
+                  (when www-prefix (list "--www-prefix" www-prefix)))))
+    (message "Started proxy for context `%s'." context)))
+
+;;;###autoload
+(defun kubed-stop-proxy (&optional context)
+  "Stop local proxy for context CONTEXT, defaulting to the local context."
+  (interactive
+   (let ((context nil))
+     (dolist (arg (kubed-transient-args 'kubed-transient-proxy))
+       (cond
+        ((string-match "--context=\\(.+\\)" arg)
+         (setq context (match-string 1 arg)))))
+     (unless context
+       (setq context
+             (let ((cxt (kubed-local-context)))
+               (if (equal current-prefix-arg '(16))
+                   (kubed-read-context "Context" cxt)
+                 cxt))))
+     (list context)))
+  (let ((context (or context (kubed-local-context))))
+    (if-let ((proc (alist-get context kubed--proxy-alist
+                              nil nil #'string=))
+             ((process-live-p proc)))
+        (kill-process proc)
+      (user-error "No proxy running for context `%s'" context))
+    (message "Stopped proxy for context `%s'." context)))
+
 (with-eval-after-load 'help-mode
   ;; Wait for `help-mode' to define `help-xref'.  It's always loaded by
   ;; the time we actually need it in `kubed-explain'.
@@ -3347,6 +3431,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "=" #'kubed-diff
   "E" #'kubed-explain
   "P" #'kubed-patch
+  ":" #'kubed-proxy
   "RET" #'kubed-display-resource
   "!" #'kubed-kubectl-command)
 
@@ -3365,6 +3450,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "<cronjob>"          '("Cron Jobs..."          . kubed-cronjob-menu-map)
   "<ingressclass>"     '("Ingress Classes..."    . kubed-ingressclass-menu-map)
   "<ingress>"          '("Ingresses..."          . kubed-ingress-menu-map)
+  "<proxy>"            '("Proxy Kubernetes API"  . kubed-proxy)
   "<patch>"            '("Patch Resource"        . kubed-patch)
   "<diff>"             '("Diff Config with Live" . kubed-diff)
   "<kubectl-command>"  '("Invoke kubectl"        . kubed-kubectl-command)
