@@ -80,6 +80,8 @@ Connect to pods and edit files or execute commands
 @item
 Create new resources, edit and delete them
 @item
+Work with multiple clusters
+@item
 Get help about various Kubernetes objects
 @item
 @dots{}

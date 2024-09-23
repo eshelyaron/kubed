@@ -16,6 +16,7 @@ You can use Kubed to:
 - Browse and manage Kubernetes workloads
 - Connect to pods and edit files or execute commands
 - Create new resources, edit and delete them
+- Work with multiple clusters
 - Get help about various Kubernetes objects
 - ...
 
