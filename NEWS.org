@@ -10,7 +10,7 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.4.1 in development
+* Version 0.4.1 on 2024-09-23
 
 ** New command and transient menu for scaling deployments
 
