@@ -1571,7 +1571,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
          menu)
 
        (define-derived-mode ,mod-name kubed-list-mode
-         '(,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
+         '(,(format "Kubernetes %s" (capitalize (symbol-name plrl-var)))
            kubed-list-mode-line-format)
          ,(format "Major mode for listing Kubernetes %S." plrl-var)
          :interactive nil
