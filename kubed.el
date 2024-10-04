@@ -1008,36 +1008,41 @@ number at point, or the numeric prefix argument if you provide one."
      (cons 'current (tabulated-list-get-id))
      (cons 'namespace kubed-list-namespace)))))
 
+(defun kubed-list-revert (&rest _)
+  "Revert the current Kubernetes resources list buffer.
+
+This is the `revert-buffer-function' for `kubed-list-mode' and its
+derivatives.  This function does not fetch new data from Kubernetes, it
+only (re)displays the existing data."
+  (let (marks)
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (unless (eq (char-after) ?\s)
+          (push (cons (tabulated-list-get-id)
+                      ;; Preserve mark text properties.
+                      (buffer-substring (point) (1+ (point))))
+                marks))
+        (forward-line)))
+    (tabulated-list-revert)
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let ((id (tabulated-list-get-id)))
+          (when-let ((mark (alist-get id marks nil nil #'equal)))
+            (tabulated-list-put-tag mark)))
+        (forward-line)))))
+
 (define-derived-mode kubed-list-mode tabulated-list-mode "Kubernetes Resources"
   "Major mode for listing Kubernetes resources.
 
 Modes for specific resource types, such as `kubed-pods-mode', use this
 mode as their parent."
   :interactive nil
-  (add-hook 'revert-buffer-restore-functions
-            (lambda ()
-              (let (marks)
-                (save-excursion
-                  (goto-char (point-min))
-                  (while (not (eobp))
-                    (unless (eq (char-after) ?\s)
-                      (push (cons (tabulated-list-get-id)
-                                  ;; Preserve mark text properties.
-                                  (buffer-substring (point) (1+ (point))))
-                            marks))
-                    (forward-line)))
-                (lambda ()
-                  (save-excursion
-                    (goto-char (point-min))
-                    (while (not (eobp))
-                      (let ((id (tabulated-list-get-id)))
-                        (when-let ((mark (alist-get id marks nil nil #'equal)))
-                          (tabulated-list-put-tag mark)))
-                      (forward-line))))))
-            nil t)
-  (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow))
-  (setq-local tabulated-list-entries #'kubed-list-entries)
-  (setq-local bookmark-make-record-function #'kubed-list-make-bookmark)
+  (setq-local truncate-string-ellipsis (propertize ">" 'face 'shadow)
+              tabulated-list-entries #'kubed-list-entries
+              bookmark-make-record-function #'kubed-list-make-bookmark
+              revert-buffer-function #'kubed-list-revert)
   (add-hook 'context-menu-functions #'kubed-list-context-menu nil t))
 
 ;;;###autoload
