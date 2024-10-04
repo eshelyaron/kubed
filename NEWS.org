@@ -10,6 +10,13 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.4.2 in development
+
+** New user option 'kubed-list-mode-line-format'
+
+This user option lets you customize the indicator that Kubed shows in
+the mode line of resource table buffers when update is in progress.
+
 * Version 0.4.1 on 2024-09-23
 
 ** New command and transient menu for scaling deployments

@@ -482,6 +482,12 @@ that @code{revert-buffer} only refreshes the list display, without
 fetching updated data from Kubernetes.  You can still invoke
 @code{revert-buffer} with @kbd{C-x x g} or @kbd{M-x}, if you need it.
 
+@vindex kubed-list-mode-line-format
+Whenever Kubed is fetching data from Kubernetes to update a resources
+list buffer, the mode line of that list buffer shows the @samp{[...]}
+indicator.  You can set user option @code{kubed-list-mode-line-format}
+to customize this indicator.
+
 @menu
 * List Filter::
 @end menu

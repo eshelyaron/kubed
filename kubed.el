@@ -1140,6 +1140,22 @@ prompt for CONTEXT as well."
             (when namespace (list "-n" namespace))
             (when context (list "--context" context))))))
 
+(defcustom kubed-list-mode-line-format
+  '(:eval (cond
+           ((process-live-p
+             (alist-get 'process
+                        (kubed--alist kubed-list-type
+                                      kubed-list-context
+                                      kubed-list-namespace)))
+            (propertize "[...]" 'help-echo "Updating..."))
+           (kubed-list-filter
+            (propertize
+             (concat "[" (mapconcat #'prin1-to-string kubed-list-filter " ") "]")
+             'help-echo "Current filter"))))
+  "Mode line construct for indicating status of Kubernetes resources list."
+  :type 'sexp
+  :risky t)
+
 ;;;###autoload
 (defmacro kubed-define-resource (resource &optional properties &rest commands)
   "Define Kubernetes RESOURCE with associated PROPERTIES and COMMANDS.
@@ -1555,17 +1571,8 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
          menu)
 
        (define-derived-mode ,mod-name kubed-list-mode
-         (list ,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
-               (list '(:eval (if (process-live-p
-                                  (alist-get 'process
-                                             (kubed--alist kubed-list-type
-                                                           kubed-list-context
-                                                           kubed-list-namespace)))
-                                 (propertize "[...]" 'help-echo "Updating...")
-                               (when kubed-list-filter
-                                 (propertize
-                                  (concat "[" (mapconcat #'prin1-to-string kubed-list-filter " ") "]")
-                                  'help-echo "Current filter"))))))
+         '(,(format "Kubernetes %ss" (capitalize (symbol-name resource)))
+           kubed-list-mode-line-format)
          ,(format "Major mode for listing Kubernetes %S." plrl-var)
          :interactive nil
          (setq kubed-list-filter-history-variable
