@@ -11,7 +11,7 @@
 @c %**end of header
 
 @copying
-This manual is for Kubed 0.4.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.4.2, a rich Emacs interface for Kubernetes.
 
 Copyright @copyright{} 2024 Eshel Yaron.
 
@@ -40,7 +40,7 @@ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
 @node Top
 @top Kubed: Kubernetes, Emacs, done!
 
-This manual is for Kubed 0.4.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.4.2, a rich Emacs interface for Kubernetes.
 
 @end ifnottex
 

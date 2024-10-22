@@ -10,12 +10,18 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.4.2 in development
+* Version 0.4.2 on 2024-10-22
 
 ** New user option 'kubed-list-mode-line-format'
 
 This user option lets you customize the indicator that Kubed shows in
 the mode line of resource table buffers when update is in progress.
+
+** Fix Tramp method autoload issue
+
+This version arranges for the Kubed Tramp integration to be loaded
+earlier, which circumvents the "Method ‘kubedv1’ is not known" error
+that some users have experienced.
 
 * Version 0.4.1 on 2024-09-23
 
