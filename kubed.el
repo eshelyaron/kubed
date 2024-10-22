@@ -3488,7 +3488,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
 (defvar reporter-prompt-for-summary-p)
 
 (defun kubed-submit-bug-report ()
-  "Report a Kubed to the maintainers via mail."
+  "Report a Kubed issue to the maintainers via email."
   (interactive)
   (require 'reporter)
   (let ((reporter-prompt-for-summary-p t))
