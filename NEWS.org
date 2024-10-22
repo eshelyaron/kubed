@@ -8,7 +8,7 @@ This file contains the release notes for Kubed, a rich Emacs interface
 for Kubernetes.
 
 For further details, see the Kubed manual:
-[[https://eshelyaron.com/sweep.html][https://eshelyaron.com/kubed.html]].
+[[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
 * Version 0.4.2 on 2024-10-22
 
