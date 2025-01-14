@@ -767,9 +767,14 @@ regardless of QUIET."
             (make-process
              :name "*kubed-list-delete-marked*"
              :stderr errb
-             :command (append
-                       (list kubed-kubectl-program "delete" kubed-list-type)
-                       delete-list)
+             :command (cons kubed-kubectl-program
+                            (append
+                             (when kubed-list-context
+                               (list "--context" kubed-list-context))
+                             (when kubed-list-namespace
+                               (list "--namespace" kubed-list-namespace))
+                             (list "delete" kubed-list-type)
+                             delete-list))
              :sentinel (lambda (_proc status)
                          (cond
                           ((string= status "finished\n")
