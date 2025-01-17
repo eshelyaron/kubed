@@ -94,7 +94,7 @@ defaults to \"RESOURCEs\"."
          ("-b" "Limit bytes" "--limit-bytes="
           :prompt "Byte limit: " :reader transient-read-number-N+)
          ("-t" "Limit lines" "--tail="
-          :prompt "Byte limit: " :reader transient-read-number-N+)
+          :prompt "Line limit: " :reader transient-read-number-N+)
          ("-S" "Since time" "--since-time="
           :prompt "Since time: " :reader kubed-transient-read-date)]
         ["Switches"
