@@ -10,6 +10,16 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.4.3 on 2025-01-21
+
+This is a maintenance release, it includes minor improvements and one
+important bug fix:
+
+** Fix 'kubed-list-delete-marked' in non-default context
+
+Marking resources with ~d~ and deleting them with ~x~ now works also
+in resource tables of resources in non-default contexts or namespaces.
+
 * Version 0.4.2 on 2024-10-22
 
 ** New user option 'kubed-list-mode-line-format'
