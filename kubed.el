@@ -696,7 +696,7 @@ to 1."
                   #'previous-single-property-change)))
     (dotimes (_ times)
       (setq next (funcall dir-fn next 'tabulated-list-column-name))
-      (when (= (char-after next) ?\n)
+      (when (equal (char-after next) ?\n)
         ;; At line boundary, go to first/last column of next line.
         (setq next (funcall dir-fn next 'tabulated-list-column-name)))
       (unless next (user-error "End of table")))
