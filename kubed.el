@@ -2556,7 +2556,11 @@ prefix argument, prompt for CONTEXT as well."
             "config" "set-context" (or context "--current")
             "--namespace" namespace))
     (user-error "Failed to set Kubernetes namespace to `%s'" namespace))
-  (message "Kubernetes namespace is now `%s'." namespace))
+  (message "Default Kubernetes namespace%s is now `%s'."
+           (if context
+               (substitute-quotes (concat " for context `" context "'"))
+             "")
+           namespace))
 
 (defcustom kubed-read-resource-definition-filter-files-by-kind t
   "Whether to filter file completion candidates by their Kubernetes \"kind\".
