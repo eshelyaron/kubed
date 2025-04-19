@@ -1,3 +1,5 @@
 .dir-locals.el
 README.md
-*.png
+kubed.png
+explain-and-patch.png
+pod-context-menu.png
