@@ -92,9 +92,9 @@ defaults to \"RESOURCEs\"."
          ("-C" "Context" "--context="
           :prompt "Context" :reader kubed-transient-read-context)
          ("-b" "Limit bytes" "--limit-bytes="
-          :prompt "Byte limit: " :reader transient-read-number-N+)
+          :prompt "Bytes limit: " :reader transient-read-number-N+)
          ("-t" "Limit lines" "--tail="
-          :prompt "Line limit: " :reader transient-read-number-N+)
+          :prompt "Lines limit: " :reader transient-read-number-N+)
          ("-S" "Since time" "--since-time="
           :prompt "Since time: " :reader kubed-transient-read-date)]
         ["Switches"
@@ -145,9 +145,9 @@ defaults to \"RESOURCEs\"."
     ("-C" "Context" "--context="
      :prompt "Context" :reader kubed-transient-read-context)
     ("-b" "Limit bytes" "--limit-bytes="
-     :prompt "Byte limit: " :reader transient-read-number-N+)
+     :prompt "Bytes limit: " :reader transient-read-number-N+)
     ("-t" "Limit lines" "--tail="
-     :prompt "Byte limit: " :reader transient-read-number-N+)
+     :prompt "Lines limit: " :reader transient-read-number-N+)
     ("-S" "Since time" "--since-time="
      :prompt "Since time: " :reader kubed-transient-read-date)]
    ["Switches"
