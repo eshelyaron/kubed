@@ -1673,10 +1673,33 @@ Interactively, use the current context.  With a prefix argument
                "\\)")
        1))
 
+(defconst kubed--hex-encoding-table
+  (let ((vec (make-vector 256 nil)))
+    (dotimes (byte 256) (aset vec byte (format ".%02X" byte))) vec))
+
+(defconst kubed--hex-allowed-chars-table
+  (let ((vec (make-vector 256 nil)))
+    (dolist (byte '( ?a ?b ?c ?d ?e ?f ?g ?h ?i ?j ?k ?l ?m ?n ?o ?p ?q ?r ?s ?t ?u ?v ?w ?x ?y ?z
+                     ?A ?B ?C ?D ?E ?F ?G ?H ?I ?J ?K ?L ?M ?N ?O ?P ?Q ?R ?S ?T ?U ?V ?W ?X ?Y ?Z
+                     ?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9
+                     ?- ?_))
+      (ignore-errors (aset vec byte t)))
+    vec))
+
+(defun kubed--encode-context-name (str)
+  ;; Adopted from `url-hexify-string'.
+  (mapconcat (lambda (byte)
+	       (if (aref kubed--hex-allowed-chars-table byte)
+		   (char-to-string byte)
+		 (aref kubed--hex-encoding-table byte)))
+	     (if (multibyte-string-p str)
+		 (encode-coding-string str 'utf-8)
+	       str)))
+
 (defun kubed-remote-file-name (context namespace pod &optional file-name)
   "Return remote FILE-NAME for POD in NAMESPACE and CONTEXT."
   (concat "/" kubed-tramp-method ":"
-          context "%" namespace "%" pod
+          (kubed--encode-context-name context) "%" namespace "%" pod
           "%" (kubed-read-container pod "Container" t context namespace)
           ":" file-name))
 

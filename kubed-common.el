@@ -12,8 +12,8 @@
 
 ;;; Code:
 
-(defvar kubed-tramp-method "kubedv1"    ;Versioned, for compatibility.
-  ;; (find-file "/kubedv1:CONTEXT%NAMESPACE%POD%CONTAINER:/some/file")
+(defvar kubed-tramp-method "kubedv2"    ;Versioned, for compatibility.
+  ;; (find-file "/kubedv2:CONTEXT%NAMESPACE%POD%CONTAINER:/some/file")
   "Name of the Kubed Tramp method.")
 
 (defcustom kubed-kubectl-program "kubectl"

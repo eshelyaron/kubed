@@ -22,6 +22,31 @@
 (require 'kubed-common)
 (require 'tramp)
 
+(defun kubed-tramp--unhex (x)
+  ;; Simplified version of `url-unhex'.
+  (if (> x ?9) (+ 10 (- x ?A)) (- x ?0)))
+
+(defun kubed-tramp--decode-context-name (str)
+  ;; Adopted from `url-unhex-string'.
+  (let ((tmp "") (case-fold-search nil))
+    (while (string-match "[.][0-9A-F][0-9A-F]" str)
+      (let* ((start (match-beginning 0))
+	     (ch1 (kubed-tramp--unhex (elt str (+ start 1))))
+	     (code (+ (* 16 ch1)
+		      (kubed-tramp--unhex (elt str (+ start 2))))))
+	(setq tmp (concat tmp (substring str 0 start) (byte-to-string code))
+	      str (substring str (match-end 0)))))
+    (concat tmp str)))
+
+(defun kubed-tramp--v2-context (vec)
+  "Extract the context name from a kubernetes host name in VEC."
+  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+        (shell-quote-argument
+         (decode-coding-string
+         (kubed-tramp--decode-context-name (nth 0 (split-string host "%")))
+         'utf-8)))
+      ""))
+
 (defun kubed-tramp--context (vec)
   "Extract the context name from a kubernetes host name in VEC."
   (or (when-let ((host (and vec (tramp-file-name-host vec))))
@@ -49,8 +74,14 @@
 ;;;###autoload
 (defun kubed-tramp-context (file-name)
   "Extract `kubectl' context from Kubed Tramp remote file name FILE-NAME."
-  (nth 0 (split-string
-          (tramp-file-name-host (tramp-dissect-file-name file-name)) "%")))
+  ;; TODO: Dispatch based on method version.  The following is intended
+  ;; for v2, although it also works for v1 in most cases.
+  (decode-coding-string
+   (kubed-tramp--decode-context-name
+    (nth 0 (split-string
+            (tramp-file-name-host (tramp-dissect-file-name file-name))
+            "%")))
+   'utf-8))
 
 ;;;###autoload
 (defun kubed-tramp-namespace (file-name)
@@ -69,32 +100,49 @@
   "Enable Kubed integration with Tramp."
   (when (boundp 'tramp-extra-expand-args) ; Tramp 2.7+
 
-    (setf (alist-get kubed-tramp-method tramp-methods nil nil #'string=)
-          `((tramp-login-program ,kubed-kubectl-program)
-            (tramp-login-args (("exec")
-                               ("--context" "%x")
-                               ("--namespace" "%y")
-                               ("-c" "%a")
-                               ("%h")
-                               ("-it")
-                               ("--")
-		               ("%l")))
-            (tramp-direct-async (,tramp-default-remote-shell "-c"))
-            (tramp-remote-shell ,tramp-default-remote-shell)
-            (tramp-remote-shell-login ("-l"))
-            (tramp-remote-shell-args ("-i" "-c"))))
+    (let ((params `((tramp-login-program ,kubed-kubectl-program)
+                    (tramp-login-args (("exec")
+                                       ("--context" "%x")
+                                       ("--namespace" "%y")
+                                       ("-c" "%a")
+                                       ("%h")
+                                       ("-it")
+                                       ("--")
+		                       ("%l")))
+                    (tramp-direct-async (,tramp-default-remote-shell "-c"))
+                    (tramp-remote-shell ,tramp-default-remote-shell)
+                    (tramp-remote-shell-login ("-l"))
+                    (tramp-remote-shell-args ("-i" "-c")))))
 
-    (connection-local-set-profile-variables
-     'kubed-tramp-connection-local-default-profile
-     '((tramp-extra-expand-args
-        ?a (kubed-tramp--container (car tramp-current-connection))
-        ?h (kubed-tramp--pod       (car tramp-current-connection))
-        ?x (kubed-tramp--context   (car tramp-current-connection))
-        ?y (kubed-tramp--namespace (car tramp-current-connection)))))
+      ;; Old version.
+      (setf (alist-get "kubedv1" tramp-methods nil nil #'string=) params)
 
-    (connection-local-set-profiles
-     `(:application tramp :protocol ,kubed-tramp-method)
-     'kubed-tramp-connection-local-default-profile)))
+      (connection-local-set-profile-variables
+       'kubed-tramp-connection-local-default-profile
+       '((tramp-extra-expand-args
+          ?a (kubed-tramp--container  (car tramp-current-connection))
+          ?h (kubed-tramp--pod        (car tramp-current-connection))
+          ?x (kubed-tramp--context    (car tramp-current-connection))
+          ?y (kubed-tramp--namespace  (car tramp-current-connection)))))
+
+      (connection-local-set-profiles
+       '(:application tramp :protocol "kubedv1")
+       'kubed-tramp-connection-local-default-profile)
+
+      ;; New version.
+      (setf (alist-get kubed-tramp-method tramp-methods nil nil #'string=) params)
+
+      (connection-local-set-profile-variables
+       'kubed-tramp-v2-connection-local-default-profile
+       '((tramp-extra-expand-args
+          ?a (kubed-tramp--container  (car tramp-current-connection))
+          ?h (kubed-tramp--pod        (car tramp-current-connection))
+          ?x (kubed-tramp--v2-context (car tramp-current-connection))
+          ?y (kubed-tramp--namespace  (car tramp-current-connection)))))
+
+      (connection-local-set-profiles
+       `(:application tramp :protocol ,kubed-tramp-method)
+       'kubed-tramp-v2-connection-local-default-profile))))
 
 ;;;###autoload (with-eval-after-load 'tramp (kubed-tramp-enable))
 
