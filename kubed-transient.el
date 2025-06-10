@@ -125,6 +125,9 @@ defaults to \"RESOURCEs\"."
 ;;;###autoload (autoload 'kubed-transient-logs-for-replicaset "kubed-transient" nil t)
 (kubed-transient-logs-for-resource "replicaset")
 
+;;;###autoload (autoload 'kubed-transient-logs-for-daemonset "kubed-transient" nil t)
+(kubed-transient-logs-for-resource "daemonset")
+
 ;;;###autoload (autoload 'kubed-transient-logs-for-statefulset "kubed-transient" nil t)
 (kubed-transient-logs-for-resource "statefulset")
 

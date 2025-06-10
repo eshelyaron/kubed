@@ -943,6 +943,7 @@ number at point, or the numeric prefix argument if you provide one."
 (declare-function kubed-transient-logs-for-deployment  "kubed-transient" (val))
 (declare-function kubed-transient-logs-for-statefulset "kubed-transient" (val))
 (declare-function kubed-transient-logs-for-replicaset  "kubed-transient" (val))
+(declare-function kubed-transient-logs-for-daemonset   "kubed-transient" (val))
 (declare-function kubed-transient-logs-for-job         "kubed-transient" (val))
 (declare-function kubed-transient-logs-for-service     "kubed-transient" (val))
 
@@ -2218,6 +2219,37 @@ optional command to run in the images."
            :right-align t)
      (ownerkind ".metadata.ownerReferences[0].kind" 12)
      (ownername ".metadata.ownerReferences[0].name" 16)
+     (creationtimestamp ".metadata.creationTimestamp" 20))
+  :logs t)
+
+;;;###autoload (autoload 'kubed-display-daemonset "kubed" nil t)
+;;;###autoload (autoload 'kubed-edit-daemonset "kubed" nil t)
+;;;###autoload (autoload 'kubed-delete-daemonsets "kubed" nil t)
+;;;###autoload (autoload 'kubed-list-daemonsets "kubed" nil t)
+;;;###autoload (autoload 'kubed-create-daemonset "kubed" nil t)
+;;;###autoload (autoload 'kubed-logs-for-daemonset "kubed" nil t)
+;;;###autoload (autoload 'kubed-daemonset-prefix-map "kubed" nil t 'keymap)
+(kubed-define-resource daemonset
+    ((desired ".status.desiredNumberScheduled" 8
+              (lambda (l r) (< (string-to-number l) (string-to-number r)))
+              nil                          ; formatting function
+              :right-align t)
+     (current ".status.currentNumberScheduled" 8
+              (lambda (l r) (< (string-to-number l) (string-to-number r)))
+              nil                          ; formatting function
+              :right-align t)
+     (ready ".status.numberReady" 6
+              (lambda (l r) (< (string-to-number l) (string-to-number r)))
+              nil                          ; formatting function
+              :right-align t)
+     (updated ".status.updatedNumberScheduled" 8
+            (lambda (l r) (< (string-to-number l) (string-to-number r)))
+            nil                          ; formatting function
+            :right-align t)
+     (available ".status.numberAvailable" 10
+              (lambda (l r) (< (string-to-number l) (string-to-number r)))
+              nil                          ; formatting function
+              :right-align t)
      (creationtimestamp ".metadata.creationTimestamp" 20))
   :logs t)
 
@@ -3500,6 +3532,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "<job>"              '("Jobs..."               . kubed-job-menu-map)
   "<deployment>"       '("Deployments..."        . kubed-deployment-menu-map)
   "<replicaset>"       '("Replica Sets..."       . kubed-replicaset-menu-map)
+  "<daemonset>"        '("Daemon Sets..."        . kubed-daemonset-menu-map)
   "<statefulset>"      '("Stateful Sets..."      . kubed-statefulset-menu-map)
   "<cronjob>"          '("Cron Jobs..."          . kubed-cronjob-menu-map)
   "<ingressclass>"     '("Ingress Classes..."    . kubed-ingressclass-menu-map)
