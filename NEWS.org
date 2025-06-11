@@ -10,6 +10,22 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.5.0 on 2025-06-11
+
+** DaemonSets support
+
+Kubed now provides commands for working with DaemonSets by default.
+Remember that you can always configure support for additional resource
+types with the ~kubed-define-resource~ macro!
+
+** Fix Tramp integration for context names with non-alphanumeric characters
+
+This version fixes an issue in the Kubed integration with Tramp, which
+caused it to fail for ~kubectl~ contexts whose name includes ":" and
+most other non-alphanumeric characters.
+
+See bug report at https://lists.sr.ht/~eshel/kubed-devel/%3C87ldqz70a6.fsf@gmail.com%3E
+
 * Version 0.4.3 on 2025-01-21
 
 This is a maintenance release, it includes minor improvements and one
