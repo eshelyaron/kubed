@@ -2605,17 +2605,18 @@ prefix argument, prompt for CONTEXT as well."
      (list (kubed-read-namespace "Set namespace" (kubed--namespace context)
                                  nil context)
            context)))
-  (unless (zerop
-           (call-process
-            kubed-kubectl-program nil nil nil
-            "config" "set-context" (or context "--current")
-            "--namespace" namespace))
-    (user-error "Failed to set Kubernetes namespace to `%s'" namespace))
-  (message "Default Kubernetes namespace%s is now `%s'."
-           (if context
-               (substitute-quotes (concat " for context `" context "'"))
-             "")
-           namespace))
+  (let ((context (or context (kubed-local-context))))
+    (unless (zerop
+             (call-process
+              kubed-kubectl-program nil nil nil
+              "config" "set-context" context
+              "--namespace" namespace))
+      (user-error "Failed to set Kubernetes namespace to `%s' in context `%s'"
+                  namespace context))
+    (when (equal context (car kubed-default-context-and-namespace))
+      (setcdr kubed-default-context-and-namespace namespace))
+    (message "Default Kubernetes namespace for context `%s' is now `%s'."
+             context namespace)))
 
 (defcustom kubed-read-resource-definition-filter-files-by-kind t
   "Whether to filter file completion candidates by their Kubernetes \"kind\".
