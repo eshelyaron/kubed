@@ -2508,7 +2508,9 @@ Optional argument DEFAULT is the minibuffer default argument."
 
 ;;;###autoload
 (defun kubed-use-context (context)
-  "Set current Kubernetes context to CONTEXT."
+  "Set current Kubernetes context and default context to CONTEXT.
+
+Interactively, prompt for CONTEXT with completion."
   (interactive
    (list (kubed-read-context "Use context" (kubed-local-context))))
   (unless (zerop
@@ -2516,6 +2518,7 @@ Optional argument DEFAULT is the minibuffer default argument."
             kubed-kubectl-program nil nil nil
             "config" "use-context" context))
     (user-error "Failed to use Kubernetes context `%s'" context))
+  (setq kubed-default-context-and-namespace (list context))
   (message "Now using Kubernetes context `%s'." context))
 
 ;;;###autoload
