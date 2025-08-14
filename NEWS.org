@@ -10,6 +10,14 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.5.1 in development
+
+** ~kubed-use-context~ now also updates ~kubed-default-context-and-namespace~
+
+Setting the default ~kubectl~ context with ~kubed-use-context~ now
+also updates the user option ~kubed-default-context-and-namespace~,
+such that Kubed commands will also use the new context as a default.
+
 * Version 0.5.0 on 2025-06-11
 
 ** DaemonSets support
