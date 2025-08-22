@@ -3486,7 +3486,7 @@ CONTEXT is the `kubectl' context to use."
 (defun kubed-read-kubectl-command (prompt &optional initial)
   "Prompt with PROMPT for a `kubectl' command line.
 
-Optional argument INITIAL added to the initial minibuffer input
+Optional argument is INITIAL added to the initial minibuffer input
 following the value of `kubed-kubectl-program' and a space character."
   (let ((init (if (consp initial)
                   (cons    (concat kubed-kubectl-program " " (car initial))
