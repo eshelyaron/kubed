@@ -107,7 +107,7 @@ by default it is `yaml-ts-mode'."
     (user-error "Update in progress"))
   (let* ((out (get-buffer-create (format " *kubed-get-%s*"        type)))
          (err (get-buffer-create (format " *kubed-get-%s-stderr*" type)))
-         (columns (alist-get type kubed--columns nil nil #'string=)))
+         (columns (alist-get type kubed--columns '(("NAME:.metadata.name")) nil #'string=)))
     (with-current-buffer out (erase-buffer))
     (setf (alist-get 'process (kubed--alist type context namespace))
           (make-process
