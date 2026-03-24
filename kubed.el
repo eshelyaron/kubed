@@ -54,15 +54,30 @@
   "Kubernetes interface."
   :group 'tools)
 
-(defcustom kubed-default-context-and-namespace nil
-  "Default `kubectl' context and Kubernetes namespace.
+(defvar kubed-default-context-and-namespace nil)
+(make-obsolete-variable
+ 'kubed-default-context-and-namespace
+ 'kubed-default-context-and-namespace-alist
+ "Kubed 0.6.0")
 
-This is either a cons cell (CONTEXT . NAMESPACE), or nil.  If nil, Kubed
-initializes this option to a non-nil value next time Kubed consults it."
-  :type '(choice (const :tag "Initialize from `kubectl' on first use" nil)
-                 (cons :tag "Context and namespace"
-                       (string :tag "Context")
-                       (string :tag "Namespace"))))
+(defcustom kubed-default-context-and-namespace-alist
+  `((nil . ,kubed-default-context-and-namespace))
+  "Alist mapping hosts to their default `kubectl' context and Kubernetes namespace.
+
+Each alist entry is (HOST . CONTEXT-AND-NAMESPACE), where HOST is either
+a remote host identifier (as returned by `file-remote-p') or nil which
+represents the local host, and CONTEXT-AND-NAMESPACE is either a cons
+cell (CONTEXT . NAMESPACE), or nil.  If it is nil, Kubed initializes
+CONTEXT-AND-NAMESPACE to a non-nil value next time Kubed consults it."
+  :type '(alist
+          :key-type
+          (choice (const :tag "Local host" nil)
+                  (string :tag "Remote host"))
+          :value-type
+          (choice (const :tag "Initialize from `kubectl' on first use" nil)
+                  (cons :tag "Context and namespace"
+                        (string :tag "Context")
+                        (string :tag "Namespace")))))
 
 (defcustom kubed-yaml-setup-hook '(yaml-ts-mode view-mode)
   "List of functions to call in Kubernetes resource description YAML buffers.
@@ -79,43 +94,51 @@ by default it is `yaml-ts-mode'."
   "Specification of resource name column in Kubernetes resource list buffers."
   :type '(list string natnum boolean))
 
+(defsubst kubed-kubectl-program ()
+  "Return the connection-local value of variable `kubed-kubectl-program'."
+  (connection-local-value kubed-kubectl-program 'kubed))
+
 (defvar kubed--data nil)
 
-(defun kubed--alist (type context namespace)
-  "Return information about resources in CONTEXT of type TYPE in NAMESPACE."
+(defun kubed--alist (host type context namespace)
+  "Return information about resources of type TYPE for HOST, CONTEXT and NAMESPACE."
   (alist-get namespace
              (alist-get type
                         (alist-get context
-                                   kubed--data nil nil #'string=)
+                                   (alist-get host kubed--data nil nil #'equal)
+                                   nil nil #'string=)
                         nil nil #'string=)
              nil nil #'equal))
 
-(gv-define-setter kubed--alist (value type context namespace)
+(gv-define-setter kubed--alist (value host type context namespace)
   `(setf (alist-get ,namespace
                     (alist-get ,type
                                (alist-get ,context
-                                          kubed--data nil nil #'string=)
+                                          (alist-get ,host kubed--data nil nil #'equal)
+                                          nil nil #'string=)
                                nil nil #'string=)
                     nil nil #'equal)
          ,value))
 
 (defvar kubed--columns nil)
 
-(defun kubed-update (type context &optional namespace)
+(defun kubed-update (type context &optional namespace host)
   "Update list of resources of type TYPE in CONTEXT and NAMESPACE."
-  (when (process-live-p (alist-get 'process (kubed--alist type context namespace)))
+  (unless host (setq host (file-remote-p default-directory)))
+  (when (process-live-p (alist-get 'process (kubed--alist host type context namespace)))
     (user-error "Update in progress"))
   (let* ((out (get-buffer-create (format " *kubed-get-%s*"        type)))
          (err (get-buffer-create (format " *kubed-get-%s-stderr*" type)))
          (columns (alist-get type kubed--columns '(("NAME:.metadata.name")) nil #'string=)))
     (with-current-buffer out (erase-buffer))
-    (setf (alist-get 'process (kubed--alist type context namespace))
+    (setf (alist-get 'process (kubed--alist host type context namespace))
           (make-process
            :name (format "*kubed-get-%s*" type)
            :buffer out
            :stderr err
+           :file-handler t
            :command (append
-                     (list kubed-kubectl-program "get" type
+                     (list (kubed-kubectl-program) "get" type
                            "--context" context
                            (format "--output=custom-columns=%s"
                                    (mapconcat #'car columns ",")))
@@ -146,7 +169,7 @@ by default it is `yaml-ts-mode'."
                            (setq beg (pop ends))))
                        (push (nreverse cols) new))
                      (forward-line 1)))
-                 (setf (kubed--alist type context namespace)
+                 (setf (kubed--alist host type context namespace)
                        (list (cons 'resources
                                    (mapcar (lambda (c) (list (car c) (apply #'vector c)))
                                            new))))
@@ -155,6 +178,9 @@ by default it is `yaml-ts-mode'."
                      (and (equal (buffer-local-value 'kubed-list-type buf) type)
                           (equal (buffer-local-value 'kubed-list-context buf) context)
                           (equal (buffer-local-value 'kubed-list-namespace buf) namespace)
+                          (equal (file-remote-p
+                                  (buffer-local-value 'default-directory buf))
+                                 host)
                           (with-current-buffer buf
                             (when (derived-mode-p 'kubed-list-mode)
                               (revert-buffer)
@@ -194,8 +220,8 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
       (with-temp-buffer
         (unless (zerop
                  (apply
-                  #'call-process
-                  kubed-kubectl-program nil t nil "get"
+                  #'process-file
+                  (kubed-kubectl-program) nil t nil "get"
                   type "--output=yaml" name
                   (append (when namespace (list "-n" namespace))
                           (when context (list "--context" context)))))
@@ -209,8 +235,10 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
 (defun kubed-display-resource-in-buffer
     (buffer type resource &optional context namespace)
   "Display Kubernetes RESOURCE of type TYPE in BUFFER."
-  (let ((info (list type resource context namespace)))
+  (let ((info (list type resource context namespace))
+        (dir default-directory))
     (with-current-buffer (get-buffer-create buffer)
+      (setq-local default-directory dir)
       (setq-local kubed-display-resource-info info)
       (kubed-display-resource-revert)
       (goto-char (point-min))
@@ -350,10 +378,16 @@ prompt for CONTEXT as well."
     (when (= ?y choice)
       (let ((err-buf (get-buffer-create " *kubed-replace*")))
         (with-current-buffer err-buf (erase-buffer))
-        (unless (zerop (call-process-region nil nil kubed-kubectl-program
-                                            nil err-buf nil "replace" "-f" "-"))
-          (display-buffer err-buf)
-          (user-error "`kubectl replace' failed!")))
+        (let ((tmpfile (make-temp-file "kubed")))
+          (unwind-protect
+              (progn
+                (write-region (point-min) (point-max) tmpfile)
+                (unless (zerop (process-file (kubed-kubectl-program)
+                                             tmpfile err-buf nil
+                                             "replace" "-f" "-"))
+                  (display-buffer err-buf)
+                  (user-error "`kubectl replace' failed!")))
+            (delete-file tmpfile))))
       (message "Replaced Kubernetes resource with changes in current buffer.")
       (revert-buffer))))
 
@@ -505,18 +539,15 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 
 (defun kubed-list-go-to-line (id)
   "Go to beginning of table line with ID."
-  (let ((pos nil))
+  (let ((proc (alist-get 'process
+                         (kubed--alist (file-remote-p default-directory)
+                                       kubed-list-type
+                                       kubed-list-context
+                                       kubed-list-namespace)))
+        (pos nil))
     (save-excursion
       ;; Wait for refresh to finish, if currently underway.
-      (while (process-live-p
-              (alist-get 'process (kubed--alist kubed-list-type
-                                                kubed-list-context
-                                                kubed-list-namespace)))
-        (accept-process-output
-         (alist-get 'process (kubed--alist kubed-list-type
-                                           kubed-list-context
-                                           kubed-list-namespace))
-         1))
+      (while (process-live-p proc) (accept-process-output proc 1))
       (goto-char (point-min))
       (while (not (or pos (eobp)))
         (if (equal id (tabulated-list-get-id))
@@ -539,7 +570,7 @@ of the error, push a mark before moving point."
           (progn
             ;; FIXME: There is a small edge case here that could get
             ;; better treatment: when `contents' ends with " ?", it
-            ;; espaces the terminating closing parenthesis and leads us
+            ;; escapes the terminating closing parenthesis and leads us
             ;; to incorrectly report the input as incomplete.
             (insert "(" contents ")")
             (goto-char (point-min))
@@ -568,7 +599,8 @@ of the error, push a mark before moving point."
          (cols (seq-map #'car tabulated-list-format))
          (vals (let ((tmp nil))
                  (dolist (ent (alist-get 'resources
-                                         (kubed--alist kubed-list-type
+                                         (kubed--alist (file-remote-p default-directory)
+                                                       kubed-list-type
                                                        kubed-list-context
                                                        kubed-list-namespace)))
                    (let ((i 0))
@@ -767,7 +799,8 @@ regardless of QUIET."
             (make-process
              :name "*kubed-list-delete-marked*"
              :stderr errb
-             :command (cons kubed-kubectl-program
+             :file-handler t
+             :command (cons (kubed-kubectl-program)
                             (append
                              (when kubed-list-context
                                (list "--context" kubed-list-context))
@@ -975,7 +1008,8 @@ number at point, or the numeric prefix argument if you provide one."
   "`tabulated-list-entries' function for `kubed-list-mode'."
   (let ((pred (kubed-list-interpret-filter))
         (ents nil))
-    (dolist (ent (alist-get 'resources (kubed--alist kubed-list-type
+    (dolist (ent (alist-get 'resources (kubed--alist (file-remote-p default-directory)
+                                                     kubed-list-type
                                                      kubed-list-context
                                                      kubed-list-namespace)))
       (when (funcall pred ent) (push ent ents)))
@@ -1086,8 +1120,8 @@ prompt for CONTEXT as well."
   (unless resources (user-error "You didn't specify %s to delete" type))
   (message (format "Deleting Kubernetes %s `%s'..."
                    type (string-join resources "', `")))
-  (if (zerop (apply #'call-process
-                    kubed-kubectl-program nil nil nil
+  (if (zerop (apply #'process-file
+                    (kubed-kubectl-program) nil nil nil
                     "delete" type
                     (append (when namespace (list "-n" namespace))
                             (when context (list "--context" context))
@@ -1137,9 +1171,9 @@ prompt for CONTEXT as well."
                    (concat "KUBE_EDITOR=" emacsclient-program-name)
                  "KUBE_EDITOR=emacsclient")
                process-environment)))
-    (apply #'start-process
+    (apply #'start-file-process
            (format "*kubed-%S-edit*" type) nil
-           kubed-kubectl-program "edit" type resource
+           (kubed-kubectl-program) "edit" type resource
            (append
             (when namespace (list "-n" namespace))
             (when context (list "--context" context))))))
@@ -1148,7 +1182,8 @@ prompt for CONTEXT as well."
   '(:eval (cond
            ((process-live-p
              (alist-get 'process
-                        (kubed--alist kubed-list-type
+                        (kubed--alist (file-remote-p default-directory)
+                                      kubed-list-type
                                       kubed-list-context
                                       kubed-list-namespace)))
             (propertize "[...]" 'help-echo "Updating..."))
@@ -1598,9 +1633,12 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
 
        (defun ,buff-fun (context . ,(when namespaced '(namespace)))
          (let ((buf-name (format ,(format "*Kubed %S%%s*" plrl-var)
-                                 ,(if namespaced
-                                      `(concat "@" namespace "[" context "]")
-                                    `(concat "[" context "]")))))
+                                 (concat
+                                  ,(if namespaced
+                                       `(concat "@" namespace "[" context "]")
+                                     `(concat "[" context "]"))
+                                  (when-let ((host (file-remote-p default-directory)))
+                                    (concat " from " host))))))
            (if-let ((buf (get-buffer buf-name))) buf
              (with-current-buffer (get-buffer-create buf-name)
                (,mod-name)
@@ -1699,7 +1737,10 @@ Interactively, use the current context.  With a prefix argument
 
 (defun kubed-remote-file-name (context namespace pod &optional file-name)
   "Return remote FILE-NAME for POD in NAMESPACE and CONTEXT."
-  (concat "/" kubed-tramp-method ":"
+  (concat (if-let ((host (file-remote-p default-directory)))
+              (concat (substring host 0 (1- (length host))) "|")
+            "/")
+          kubed-tramp-method ":"
           (kubed--encode-context-name context) "%" namespace "%" pod
           "%" (kubed-read-container pod "Container" t context namespace)
           ":" file-name))
@@ -1825,8 +1866,8 @@ With a prefix argument, prompt for CONTEXT instead."
                   cxt))))
       (list (read-string "Create namespace with name: ") context)))
    (unless (zerop
-            (apply #'call-process
-                   kubed-kubectl-program nil nil nil
+            (apply #'process-file
+                   (kubed-kubectl-program) nil nil nil
                    "create" "namespace" name
                    (when context (list "--context" context))))
      (user-error "Failed to create Kubernetes namespace with name `%s'" name))
@@ -1905,8 +1946,8 @@ defaulting to the current namespace."
   (let* ((context (or context (kubed-local-context)))
          (namespace (or namespace (kubed--namespace context))))
     (unless (zerop
-             (call-process
-              kubed-kubectl-program nil nil nil
+             (process-file
+              (kubed-kubectl-program) nil nil nil
               "create" "job" name "--from" (concat "cronjob/" cronjob)
               "-n" namespace "--context" context))
       (user-error "Failed to create Kubernetes job `%s'" name))
@@ -1956,8 +1997,8 @@ defaulting to the current namespace."
         (setq image (kubed-read-container-image "Image to run in job")))
       (list name image context namespace command)))
    (unless (zerop
-            (apply #'call-process
-                   kubed-kubectl-program nil nil nil
+            (apply #'process-file
+                   (kubed-kubectl-program) nil nil nil
                    "create" "job" name "--image" image
                    (append
                     (when namespace (list "-n" namespace))
@@ -2003,7 +2044,8 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
     (make-process
      :name "*kubed-watch-deployment-status*"
      :buffer buf
-     :command (list kubed-kubectl-program "rollout" "status"
+     :file-handler t
+     :command (list (kubed-kubectl-program) "rollout" "status"
                     "deployment" dep "-n" namespace "--context" context)
      :sentinel (when cb
                  (lambda (_proc status)
@@ -2049,8 +2091,8 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
   (let* ((context (or context (kubed-local-context)))
          (namespace (or namespace (kubed--namespace context))))
     (unless (zerop
-             (apply #'call-process
-                    kubed-kubectl-program nil nil nil
+             (apply #'process-file
+                    (kubed-kubectl-program) nil nil nil
                     "scale" "deployment" dep
                     "--replicas" (number-to-string reps)
                     (append
@@ -2090,10 +2132,11 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
                                   context namespace)
            context namespace)))
   (let* ((context (or context (kubed-local-context)))
-         (namespace (or namespace (kubed--namespace context))))
+         (namespace (or namespace (kubed--namespace context)))
+         (host (file-remote-p default-directory)))
     (unless (zerop
-             (apply #'call-process
-                    kubed-kubectl-program nil nil nil
+             (apply #'process-file
+                    (kubed-kubectl-program) nil nil nil
                     "rollout" "restart" "deployment" dep
                     (append
                      (when namespace (list "-n" namespace))
@@ -2104,7 +2147,7 @@ NAMESPACE too.  With a double prefix argument, also prompt for CONTEXT."
       (kubed-watch-deployment-status
        dep context namespace
        (lambda ()
-         (kubed-update "deployments" context namespace))))))
+         (kubed-update "deployments" context namespace host))))))
 
 ;;;###autoload (autoload 'kubed-display-deployment "kubed" nil t)
 ;;;###autoload (autoload 'kubed-edit-deployment "kubed" nil t)
@@ -2179,8 +2222,8 @@ optional command to run in the images."
    (let* ((context (or context (kubed-local-context)))
           (namespace (or namespace (kubed--namespace context))))
      (unless (zerop
-              (apply #'call-process
-                     kubed-kubectl-program nil nil nil
+              (apply #'process-file
+                     (kubed-kubectl-program) nil nil nil
                      "create" "deployment" name
                      (append
                       (mapcar (lambda (image) (concat "--image=" image)) images)
@@ -2272,13 +2315,15 @@ optional command to run in the images."
 
 (defun kubed-cronjob-suspended-p (cj &optional context ns)
   "Return non-nil if cronjob CJ in CONTEXT and namespace NS is suspended."
-  (equal (car (apply #'process-lines
-                     kubed-kubectl-program
-                     "get" "cronjobs" cj
-                     "-o" "custom-columns=SUSPENDED:.spec.suspend" "--no-headers"
-                     (append
-                      (when ns (list "-n" ns))
-                      (when context (list "--context" context)))))
+  (equal (car (with-temp-buffer
+               (apply #'process-file
+                      (kubed-kubectl-program) nil t nil
+                      "get" "cronjobs" cj
+                      "-o" "custom-columns=SUSPENDED:.spec.suspend" "--no-headers"
+                      (append
+                       (when ns (list "-n" ns))
+                       (when context (list "--context" context))))
+               (string-lines (buffer-string) t)))
          "true"))
 
 ;;;###autoload (autoload 'kubed-display-cronjob "kubed" nil t)
@@ -2334,8 +2379,8 @@ overrides the default command IMAGE runs."
         (setq schedule (read-string "Cron schedule: " "* * * * *")))
       (list name image schedule context namespace command)))
    (unless (zerop
-            (apply #'call-process
-                   kubed-kubectl-program nil nil nil
+            (apply #'process-file
+                   (kubed-kubectl-program) nil nil nil
                    "create" "cronjob" name
                    "--image" image "--schedule" schedule
                    (append
@@ -2421,8 +2466,8 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
       (unless rules (setq rules (kubed-read-ingress-rules)))
       (list name rules context namespace class default-backend annotations)))
    (unless (zerop
-            (apply #'call-process
-                   kubed-kubectl-program nil nil nil
+            (apply #'process-file
+                   (kubed-kubectl-program) nil nil nil
                    "create" "ingress" name
                    (append
                     (mapcan (lambda (rule) (list "--rule" rule)) rules)
@@ -2449,11 +2494,18 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
 
 (defun kubed-contexts ()
   "Return list of Kubernetes contexts."
-  (process-lines kubed-kubectl-program "config" "get-contexts" "-o" "name"))
+  (with-temp-buffer
+    (process-file (kubed-kubectl-program) nil t nil
+                  "config" "get-contexts" "-o" "name")
+    (string-lines (buffer-string) t)))
 
 (defun kubed-current-context ()
   "Return current Kubernetes context."
-  (car (process-lines kubed-kubectl-program "config" "current-context")))
+  (car (with-temp-buffer
+         (unless (zerop (process-file (kubed-kubectl-program) nil t nil
+                                      "config" "current-context"))
+           (error "Failed to get current `kubectl' context"))
+         (string-lines (buffer-string) t))))
 
 (defun kubed-read-default-namespace-non-empty (context)
   "Prompt for a default namespace for CONTEXT, refusing empty input."
@@ -2466,12 +2518,13 @@ DEFAULT-BACKEND is the service to use as a backend for unhandled URLs."
 
 (defun kubed-default-context-and-namespace ()
   "Return default context and namespace as a cons cell (CONTEXT . NAMESPACE)."
-  (or kubed-default-context-and-namespace
-      (setq kubed-default-context-and-namespace
-            (let ((context (kubed-current-context)))
-              (cons context
-                    (or (kubed-current-namespace context)
-                        (kubed-read-default-namespace-non-empty context)))))))
+  (let ((host (file-remote-p default-directory)))
+    (or (alist-get host kubed-default-context-and-namespace-alist nil nil #'equal)
+        (setf (alist-get host kubed-default-context-and-namespace-alist nil nil #'equal)
+              (let ((context (kubed-current-context)))
+                (cons context
+                      (or (kubed-current-namespace context)
+                          (kubed-read-default-namespace-non-empty context))))))))
 
 (defun kubed-default-context ()
   "Return default `kubectl' context."
@@ -2511,21 +2564,23 @@ Optional argument DEFAULT is the minibuffer default argument."
   "Set default `kubectl' context to CONTEXT.
 
 This command sets the global `kubectl' default context, and updates the
-value of user option `kubed-default-context-and-namespace' accordingly.
+value of `kubed-default-context-and-namespace-alist' accordingly.
 
 Interactively, prompt for CONTEXT with completion."
   (interactive
    (list (kubed-read-context "Use context" (kubed-local-context))))
   (unless (zerop
-           (call-process
-            kubed-kubectl-program nil nil nil
+           (process-file
+            (kubed-kubectl-program) nil nil nil
             "config" "use-context" context))
     (user-error "Failed to use Kubernetes context `%s'" context))
   (let ((namespace (or (kubed-current-namespace context)
                        (kubed-read-namespace
                         (format "Default namespace to use in context `%s'" context)
                         nil nil context))))
-    (setq kubed-default-context-and-namespace (cons context namespace))
+    (setf (alist-get (file-remote-p default-directory)
+                     kubed-default-context-and-namespace-alist nil nil #'equal)
+          (cons context namespace))
     (message "Default context is now `%s', namespace `%s'." context namespace)))
 
 ;;;###autoload
@@ -2536,8 +2591,8 @@ Interactively, prompt for CONTEXT with completion."
      (list old (read-string (format-prompt "Rename context to" old)
                             nil 'kubed-context-history old))))
   (unless (zerop
-           (call-process
-            kubed-kubectl-program nil nil nil
+           (process-file
+            (kubed-kubectl-program) nil nil nil
             "config" "rename-context" old new))
     (user-error "Failed to rename Kubernetes context `%s' to `%s'" old new))
   (message "Renamed Kubernetes context `%s' to `%s'." old new))
@@ -2553,8 +2608,8 @@ Interactively, prompt for CONTEXT with completion."
                   (buffer-disable-undo)
                   (with-temp-buffer
                     (unless (zerop
-                             (call-process
-                              kubed-kubectl-program nil t nil "config" "view"))
+                             (process-file
+                              (kubed-kubectl-program) nil t nil "config" "view"))
                       (error "`kubectl config view' failed"))
                     (let ((source (current-buffer)))
                       (with-current-buffer target
@@ -2572,11 +2627,13 @@ Interactively, prompt for CONTEXT with completion."
   "Return current Kubernetes namespace for context CONTEXT.
 
 If no namespace is configured for CONTEXT, return nil."
-  (or (car (process-lines
-            kubed-kubectl-program
-            "config" "view" "-o"
-            (format "jsonpath={.contexts[?(.name==\"%s\")].context.namespace}"
-                    (or context (kubed-current-context)))))))
+  (car
+   (with-temp-buffer
+     (process-file (kubed-kubectl-program) nil t nil
+                   "config" "view" "-o"
+                   (format "jsonpath={.contexts[?(.name==\"%s\")].context.namespace}"
+                           (or context (kubed-current-context))))
+     (string-lines (buffer-string) t))))
 
 (defun kubed-local-namespace ()
   "Return Kubernetes namespace in CONTEXT local to the current buffer."
@@ -2606,8 +2663,8 @@ If no namespace is configured for CONTEXT, return nil."
   "Set default Kubernetes namespace in CONTEXT to NAMESPACE.
 
 If CONTEXT is the current default context, also update the value of user
-option `kubed-default-context-and-namespace' to use NAMESPACE as the
-default namespace.
+option `kubed-default-context-and-namespace-alist' to use NAMESPACE as
+the default namespace.
 
 Interactively, prompt for NAMESPACE and use the current context.  With a
 prefix argument, prompt for CONTEXT as well."
@@ -2621,14 +2678,17 @@ prefix argument, prompt for CONTEXT as well."
            context)))
   (let ((context (or context (kubed-local-context))))
     (unless (zerop
-             (call-process
-              kubed-kubectl-program nil nil nil
+             (process-file
+              (kubed-kubectl-program) nil nil nil
               "config" "set-context" context
               "--namespace" namespace))
       (user-error "Failed to set Kubernetes namespace to `%s' in context `%s'"
                   namespace context))
-    (when (equal context (car kubed-default-context-and-namespace))
-      (setcdr kubed-default-context-and-namespace namespace))
+    (let ((host (file-remote-p default-directory)))
+      (when (equal context
+                   (car (alist-get host kubed-default-context-and-namespace-alist nil nil #'equal)))
+        (setf (alist-get host kubed-default-context-and-namespace-alist nil nil #'equal)
+              (cons context namespace))))
     (message "Default Kubernetes namespace for context `%s' is now `%s'."
              context namespace)))
 
@@ -2652,7 +2712,7 @@ completion candidates."
   (read-file-name
    (format "%s definition file: " (or kind "Resource")) nil nil t nil
    (if (and kind kubed-read-resource-definition-filter-files-by-kind
-            (executable-find "grep"))
+            (executable-find "grep" t))
        (let ((cache (make-hash-table :test 'equal)))
          (lambda (f)
            (or (file-directory-p f)
@@ -2662,18 +2722,20 @@ completion candidates."
                           (pcase (gethash (expand-file-name f) cache 'noval)
                             ('noval
                              (puthash (expand-file-name f)
-                                      (zerop (call-process
-                                              "grep" f nil nil "-i"
-                                              (format "^kind: %s$" kind)))
+                                      (zerop (process-file
+                                              "grep" nil nil nil "-i"
+                                              (format "^kind: %s$" kind)
+                                              (file-local-name (expand-file-name f))))
                                       cache))
                             (val val)))
                      (and (equal ext "json")
                           (pcase (gethash (expand-file-name f) cache 'noval)
                             ('noval
                              (puthash (expand-file-name f)
-                                      (zerop (call-process
-                                              "grep" f nil nil "-i"
-                                              (format "^kind: %s$" kind)))
+                                      (zerop (process-file
+                                              "grep" nil nil nil "-i"
+                                              (format "^kind: %s$" kind)
+                                              (file-local-name (expand-file-name f))))
                                       cache))
                             (val val))))))))
      (lambda (f)
@@ -2705,7 +2767,7 @@ completion candidates."
   (let ((kind (or kind "resource"))
         (context (or context (kubed-local-context))))
     (message "Applying Kubernetes %s configuration `%s'..." kind config)
-    (call-process kubed-kubectl-program nil nil nil
+    (process-file (kubed-kubectl-program) nil nil nil
                   "apply" "-f" (expand-file-name config) "--context" context)
     (message "Applying Kubernetes %s configuration `%s'... Done." kind config)))
 
@@ -2733,10 +2795,13 @@ completion candidates."
     (message "Creating Kubernetes %s with definition `%s'..." kind definition)
     (message "Creating Kubernetes %s with definition `%s'... Done.  New %s name is `%s'."
              kind definition kind
-             (car (apply #'process-lines kubed-kubectl-program
-                         "create" "-f" (expand-file-name definition)
-                         "-o" "jsonpath={.metadata.name}"
-                         (when context (list "--context" context)))))))
+             (car (with-temp-buffer
+                    (apply #'process-file
+                           (kubed-kubectl-program) nil t nil
+                           "create" "-f" (expand-file-name definition)
+                           "-o" "jsonpath={.metadata.name}"
+                           (when context (list "--context" context)))
+                    (string-lines (buffer-string) t))))))
 
 ;;;###autoload
 (defun kubed-run
@@ -2797,7 +2862,7 @@ for NAMESPACE; with a double prefix argument, also prompt for CONTEXT."
      (list pod image context namespace port attach stdin tty rm envs command args)))
   (if attach
       (pop-to-buffer
-       (apply #'make-comint "kubed-run" kubed-kubectl-program nil
+       (apply #'make-comint "kubed-run" (kubed-kubectl-program) nil
               "run" pod (concat "--image=" image) "--attach"
               (append
                (mapcar (lambda (env) (concat "--env=" env))
@@ -2810,8 +2875,8 @@ for NAMESPACE; with a double prefix argument, also prompt for CONTEXT."
                (when command '("--command"))
                (when args (cons "--" args)))))
     (unless (zerop
-             (apply #'call-process
-                    kubed-kubectl-program nil nil nil
+             (apply #'process-file
+                    (kubed-kubectl-program) nil nil nil
                     "run" pod (concat "--image=" image)
                     (append
                      (mapcar (lambda (env) (concat "--env=" env)) envs)
@@ -2831,24 +2896,28 @@ for NAMESPACE; with a double prefix argument, also prompt for CONTEXT."
 
 (defun kubed-pod-containers (pod &optional context namespace)
   "Return list of containers in Kubernetes pod POD in NAMESPACE in CONTEXT."
-  (string-split
-   (car (apply #'process-lines
-               kubed-kubectl-program "get"
-               "pod" pod "-o" "jsonpath={.spec.containers[*].name}"
-               (append
-                (when namespace (list "--namespace" namespace))
-                (when context (list "--context" context)))))
+  (split-string
+   (car (with-temp-buffer
+          (apply #'process-file
+                 (kubed-kubectl-program) nil t nil
+                 "get" "pod" pod "-o" "jsonpath={.spec.containers[*].name}"
+                 (append
+                  (when namespace (list "--namespace" namespace))
+                  (when context (list "--context" context))))
+          (string-lines (buffer-string) t)))
    " "))
 
 (defun kubed-pod-default-container (pod &optional context namespace)
   "Return default container of Kubernetes pod POD in NAMESPACE in CONTEXT."
-  (car (apply #'process-lines
-              kubed-kubectl-program
-              "get" "pod" pod "-o"
-              "jsonpath={.metadata.annotations.kubectl\\.kubernetes\\.io/default-container}"
-              (append
-               (when namespace (list "--namespace" namespace))
-               (when context (list "--context" context))))))
+  (car (with-temp-buffer
+         (apply #'process-file
+                (kubed-kubectl-program) nil t nil
+                "get" "pod" pod "-o"
+                "jsonpath={.metadata.annotations.kubectl\\.kubernetes\\.io/default-container}"
+                (append
+                 (when namespace (list "--namespace" namespace))
+                 (when context (list "--context" context))))
+         (string-lines (buffer-string) t))))
 
 (defun kubed-read-container
     (pod prompt &optional guess context namespace)
@@ -2938,8 +3007,8 @@ argument, also prompt for CONTEXT."
                         (t ""))
                        namespace context))))
     (with-current-buffer buf (run-hooks 'kubed-logs-setup-hook))
-    (apply #'start-process "*kubed-logs*" buf
-           kubed-kubectl-program "logs" (concat type "/" resource)
+    (apply #'start-file-process "*kubed-logs*" buf
+           (kubed-kubectl-program) "logs" (concat type "/" resource)
            "--context" context "-n" namespace
            (append
             (cond
@@ -2985,9 +3054,9 @@ argument, also prompt for CONTEXT."
   (push
    (cons
     (format "%s %d:%d in %s[%s]" pod local-port remote-port namespace context)
-    (apply #'start-process
+    (apply #'start-file-process
            "*kubed-port-forward*" nil
-           kubed-kubectl-program "port-forward"
+           (kubed-kubectl-program) "port-forward"
            pod (format "%d:%d" local-port remote-port)
            (append
             (when namespace (list "-n" namespace))
@@ -3093,7 +3162,7 @@ STDIN and TTY are t interactively."
             (c (kubed-read-container p "Container" t context namespace)))
        (list p c context namespace stdin tty))))
   (pop-to-buffer
-   (apply #'make-comint "kubed-attach" kubed-kubectl-program nil
+   (apply #'make-comint "kubed-attach" (kubed-kubectl-program) nil
           "attach" pod
           (append
            (when namespace (list "-n" namespace))
@@ -3143,10 +3212,14 @@ argument) says to include managed fields in the comparison."
       (delete-region (point-min) (point-max))
       (fundamental-mode)
       (if (bufferp definition)
-          (with-current-buffer definition
-            (apply #'call-process-region nil nil kubed-kubectl-program
-                   nil buf nil args))
-        (apply #'call-process kubed-kubectl-program
+          (let ((tmpfile (make-temp-file "kubed")))
+            (unwind-protect
+                (with-current-buffer definition
+                  (write-region (point-min) (point-max) tmpfile)
+                  (apply #'process-file (kubed-kubectl-program)
+                         tmpfile buf nil args))
+              (delete-file tmpfile)))
+        (apply #'process-file (kubed-kubectl-program)
                nil t nil args))
       (setq buffer-read-only t)
       (diff-mode)
@@ -3197,7 +3270,7 @@ STDIN and TTY are t interactively."
             (c (kubed-read-container p "Container" t context namespace)))
        (list p command c context namespace stdin tty args))))
   (pop-to-buffer
-   (apply #'make-comint "kubed-exec" kubed-kubectl-program nil
+   (apply #'make-comint "kubed-exec" (kubed-kubectl-program) nil
           "exec" pod
           (append
            (when namespace (list "-n" namespace))
@@ -3249,8 +3322,8 @@ for CONTEXT."
            (kubed-read-patch) context namespace strategy)))
   (message "Applying patch to `%s'..." name)
   (unless (zerop
-           (apply #'call-process
-                  kubed-kubectl-program nil nil nil
+           (apply #'process-file
+                  (kubed-kubectl-program) nil nil nil
                   "patch" type name "-p" patch
                   (append
                    (when namespace (list "-n" namespace))
@@ -3308,8 +3381,8 @@ local context."
         (user-error "Proxy already running for context `%s'" context))
       (message "Stopped proxy for context `%s'." context))
     (setf (alist-get context kubed--proxy-alist nil nil #'string=)
-          (apply #'start-process (format "*kubed-proxy[%s]*" context) nil
-                 kubed-kubectl-program "proxy"
+          (apply #'start-file-process (format "*kubed-proxy[%s]*" context) nil
+                 (kubed-kubectl-program) "proxy"
                  "--context" context
                  (append
                   (when addr (list "--address" addr))
@@ -3362,20 +3435,26 @@ resource types."
   (mapcar
    (lambda (line)
      (car (split-string line)))
-   (apply #'process-lines
-          kubed-kubectl-program
-          "api-resources" "--no-headers"
-          (append
-           (when only-namespaced '("--namespaced=true"))
-           (when context (list (concat "--context=" context)))))))
+   (with-temp-buffer
+     (apply #'process-file
+            (kubed-kubectl-program) nil t nil
+            "api-resources" "--no-headers"
+            (append
+             (when only-namespaced '("--namespaced=true"))
+             (when context (list (concat "--context=" context)))))
+     (string-lines (buffer-string) t))))
 
 (defun kubed-resource-names (type context &optional namespace)
   "Return list of Kubernetes resources of type TYPE in NAMESPACE via CONTEXT."
-  (unless (kubed--alist type context namespace)
+  (unless (kubed--alist (file-remote-p default-directory) type context namespace)
     (let ((proc (kubed-update type context namespace)))
       (while (process-live-p proc)
         (accept-process-output proc 1))))
-  (mapcar #'car (alist-get 'resources (kubed--alist type context namespace))))
+  (mapcar #'car
+          (alist-get 'resources
+                     (kubed--alist
+                      (file-remote-p default-directory)
+                      type context namespace))))
 
 (defun kubed-read-resource-name (type prompt &optional default multi context namespace)
   "Prompt with PROMPT for Kubernetes resource name of type TYPE.
@@ -3427,8 +3506,8 @@ CONTEXT is the `kubectl' context to use."
                       (kubed-api-resources context)
                     ;; Complete (sub-)field name.
                     (with-temp-buffer
-                      (call-process
-                       kubed-kubectl-program nil t nil
+                      (process-file
+                       (kubed-kubectl-program) nil t nil
                        "explain" (substring s 0 start))
                       (goto-char (point-min))
                       (let ((res nil))
@@ -3466,7 +3545,7 @@ CONTEXT is the `kubectl' context to use."
                                    nil t)
             (help-xref-button 1 'kubed-explain (match-string 1))))
 
-        (call-process kubed-kubectl-program nil t nil "explain" field)
+        (process-file (kubed-kubectl-program) nil t nil "explain" field)
         ;; Buttonize references to other fields.
         (goto-char (point-min))
         (while (re-search-forward (rx line-start
@@ -3488,10 +3567,11 @@ CONTEXT is the `kubectl' context to use."
 
 Optional argument is INITIAL added to the initial minibuffer input
 following the value of `kubed-kubectl-program' and a space character."
-  (let ((init (if (consp initial)
-                  (cons    (concat kubed-kubectl-program " " (car initial))
-                        (+ (length kubed-kubectl-program) 1  (cdr initial)))
-                (concat kubed-kubectl-program " " initial))))
+  (let* ((kubectl (kubed-kubectl-program))
+         (init (if (consp initial)
+                   (cons    (concat kubectl " " (car initial))
+                         (+ (length kubectl) 1  (cdr initial)))
+                 (concat kubectl " " initial))))
     (cobra-read-command-line prompt init 'kubed-kubectl-command-history)))
 
 ;;;###autoload

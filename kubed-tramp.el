@@ -95,12 +95,36 @@
   (unless (assoc kubed-tramp-method tramp-methods)
     (user-error "Kubed Tramp support requires Tramp version 2.7 or later")))
 
+(defun kubed-tramp-get-method-parameter-advice
+    (of vec param &rest rest)
+  "Respect connection-local value of `kubed-kubectl-program'."
+  (if (and (eq param 'tramp-login-program)
+           (equal (tramp-file-name-method vec) kubed-tramp-method))
+      ;; When Tramp asks how to invoke kubectl on our behalf,
+      ;; point it to the up-to-date (and possibly connection-local)
+      ;; value of `kubed-kubectl-program'.
+      (if-let ((hop (tramp-file-name-hop vec)))
+          (let ((default-directory
+                 (tramp-make-tramp-file-name
+                  (tramp-dissect-hop-name (tramp-file-name-hop vec)))))
+            (connection-local-value kubed-kubectl-program 'kubed))
+        kubed-kubectl-program)
+    (apply of vec param rest)))
+
 ;;;###autoload
 (defun kubed-tramp-enable ()
   "Enable Kubed integration with Tramp."
   (when (boundp 'tramp-extra-expand-args) ; Tramp 2.7+
 
-    (let ((params `((tramp-login-program ,kubed-kubectl-program)
+    (let ((params `(;; Note that this "hardcodes" the current value of
+                    ;; `kubed-kubectl-program', which is the common
+                    ;; practice with Tramp methods, but it is not what
+                    ;; we want.  But that's ok: the value we put here is
+                    ;; not actually used, because we install an advice
+                    ;; that gives the up-to-date (and possibly
+                    ;; connection-local, for remote hosts) value of
+                    ;; `kubed-kubectl-program' when Tramp asks.
+                    (tramp-login-program ,kubed-kubectl-program)
                     (tramp-login-args (("exec")
                                        ("--context" "%x")
                                        ("--namespace" "%y")
@@ -142,7 +166,11 @@
 
       (connection-local-set-profiles
        `(:application tramp :protocol ,kubed-tramp-method)
-       'kubed-tramp-v2-connection-local-default-profile))))
+       'kubed-tramp-v2-connection-local-default-profile))
+
+    (advice-add 'tramp-get-method-parameter :around
+                #'kubed-tramp-get-method-parameter-advice
+                '((name . kubed)))))
 
 ;;;###autoload (with-eval-after-load 'tramp (kubed-tramp-enable))
 

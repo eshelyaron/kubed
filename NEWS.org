@@ -10,6 +10,43 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.6.0 in development
+
+** Kubed now uses the remote ~kubectl~ on remote hosts
+
+When you invoke Kubed commands in a buffer whose ~default-directory~
+points to a directory on a remote host (such as
+=/ssh:user@example.com:/some/remote/dir/=), Kubed runs ~kubectl~ on
+the remote host, so you can interact with clusters that are configured
+in the remote kubeconfig and accessible from the remote host.
+
+Note that this is a rather extensive change, please tell us about
+issues/regressions if you see any!
+
+** ~kubed-kubectl-program~ is now connection-local
+
+You can configure different ~kubed-kubectl-program~ values for
+different hosts on which you run ~kubectl~ via Kubed commands, by
+giving the variable a connection-local value for certain hosts.
+For example:
+
+#+begin_src emacs-lisp
+(connection-local-set-profile-variables
+ 'my-kubed-profile-for-somehost
+ '((kubed-kubectl-program . "/home/user/my-kubectl")))
+
+(connection-local-set-profiles
+ '(:application kubed :machine "somehost.com")
+ 'my-kubed-profile-for-somehost)
+#+end_src
+
+** New user option ~kubed-default-context-and-namespace-alist~
+
+This user option generalizes and supersedes the existing user option
+~kubed-default-context-and-namespace~, which is considered obsolete
+but is still available.  The new user option lets you set different
+defaults depending on the host on which Kubed is running ~kubectl~.
+
 * Version 0.5.1 on 2026-02-13
 
 ** Fix error with minibuffer completion for custom Kubernetes resources

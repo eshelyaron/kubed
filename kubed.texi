@@ -583,6 +583,9 @@ exit the minibuffer with an empty input.
 @node Context and Namespace
 @section Context and Namespace
 
+@c TODO: explain new support for running @command{kubectl} on remote
+@c hosts, and how each host has its own scope for contexts and namespaces.
+
 Kubed uses @command{kubectl} to interact with Kubernetes clusters, and
 you can use multiple @command{kubectl} @dfn{contexts} in Kubed to work
 with different Kubernetes clusters in parallel.  Within each context,
@@ -599,6 +602,9 @@ buffer-local context and namespace are the context and namespace of
 the resources the buffer displays.  For non-Kubed buffers, the user
 option @code{kubed-default-context-and-namespace} determines the
 default local context and namespace.
+
+@c TODO: document the new kubed-default-context-and-namespace-alist
+@c instead of kubed-default-context-and-namespace
 
 @defopt kubed-default-context-and-namespace
 Default @command{kubectl} context and Kubernetes namespace for Kubed

@@ -17,6 +17,7 @@ You can use Kubed to:
 - Connect to pods and edit files or execute commands
 - Create new resources, edit and delete them
 - Work with multiple clusters
+- Seamlessly access clusters via kubectl running on a remote host
 - Get help about various Kubernetes objects
 - ...
 
