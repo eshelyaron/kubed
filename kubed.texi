@@ -11,7 +11,7 @@
 @c %**end of header
 
 @copying
-This manual is for Kubed 0.5.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.6.0 (in development), a rich Emacs interface for Kubernetes.
 
 Copyright @copyright{} 2024-2026 Eshel Yaron.
 
@@ -40,7 +40,7 @@ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
 @node Top
 @top Kubed: Kubernetes, Emacs, done!
 
-This manual is for Kubed 0.5.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.6.0 (in development), a rich Emacs interface for Kubernetes.
 
 @end ifnottex
 
@@ -85,6 +85,8 @@ Create new resources, edit and delete them
 @item
 Work with multiple clusters
 @item
+Interact with clusters through remote Tramp connections
+@item
 Get help about various Kubernetes objects
 @item
 @dots{}
@@ -124,7 +126,10 @@ common @command{kubectl} installations.  If Emacs doesn't find the
 where to find it by customizing @code{kubed-kubectl-program}.
 
 @defopt kubed-kubectl-program
-Name of @command{kubectl} executable file to use.
+Name of @command{kubectl} executable file to use.  You can also set this
+option as a connection-local variable (@pxref{Connection Variables,,,
+emacs}) to use a different @command{kubectl} executable on specific
+remote hosts.  @xref{Kubed over Tramp}.
 @end defopt
 
 @node Usage
@@ -208,6 +213,7 @@ The following sections describe in detail the various Kubed commands.
 * Context and Namespace::
 * Transient Menus::
 * Scale Deployment::
+* Kubed over Tramp::
 @end menu
 
 @node Display Resource
@@ -583,9 +589,6 @@ exit the minibuffer with an empty input.
 @node Context and Namespace
 @section Context and Namespace
 
-@c TODO: explain new support for running @command{kubectl} on remote
-@c hosts, and how each host has its own scope for contexts and namespaces.
-
 Kubed uses @command{kubectl} to interact with Kubernetes clusters, and
 you can use multiple @command{kubectl} @dfn{contexts} in Kubed to work
 with different Kubernetes clusters in parallel.  Within each context,
@@ -600,29 +603,64 @@ For Kubed buffers that display a Kubernetes resource (@pxref{Display
 Resource}) or a list of resources (@pxref{Browse Resources}), the
 buffer-local context and namespace are the context and namespace of
 the resources the buffer displays.  For non-Kubed buffers, the user
-option @code{kubed-default-context-and-namespace} determines the
+option @code{kubed-default-context-and-namespace-alist} determines the
 default local context and namespace.
 
-@c TODO: document the new kubed-default-context-and-namespace-alist
-@c instead of kubed-default-context-and-namespace
+In addition to @command{kubectl} contexts, Kubed is aware of the
+@dfn{host} on which it invokes @command{kubectl}.  When
+@code{default-directory} is a remote location (@pxref{Remote Files,,,
+emacs}), Kubed runs @command{kubectl} on that remote host rather than on
+the local machine.  Each host has its own independent set of
+@command{kubectl} contexts, so you can simultaneously work with
+Kubernetes clusters reachable from different hosts.
+@xref{Kubed over Tramp} for more details.
 
-@defopt kubed-default-context-and-namespace
-Default @command{kubectl} context and Kubernetes namespace for Kubed
-commands.  The value of this option is either a cons cell
-@w{@code{(@var{context} . @var{namespace})}} or @code{nil}.  If it is
-@code{nil}, Kubed initializes this option to a cons cell with the
-current @command{kubectl} context and namespace for that context on
-the first time Kubed consults this option.
+@defopt kubed-default-context-and-namespace-alist
+Association list mapping hosts to their default @command{kubectl}
+context and Kubernetes namespace for Kubed commands.  Each entry is a
+cons cell @w{@code{(@var{host} . @var{context-and-namespace})}}, where
+@var{host} is either a string identifying a connection to the host (as
+returned by @code{file-remote-p}, e.g. @file{/ssh:user@@some.host:}), or
+@code{nil} for the local host.  @var{context-and-namespace} is either a
+cons cell @w{@code{(@var{context} . @var{namespace})}}, or @code{nil}.
+If it is @code{nil}, Kubed initializes the entry to a cons cell with the
+current @command{kubectl} context and the default namespace of that
+context on the first time Kubed consults this option for the given
+@var{host}.
+
+For example, you can configure Kubed to use the @code{my-context}
+context and @code{my-namespace} namespace on the local host by default
+as follows:
+
+@lisp
+(setopt kubed-default-context-and-namespace-alist
+        '((nil . ("my-context" . "my-namespace"))))
+
+;; Or, if you want to preserves other entries:
+
+(setf (alist-get nil kubed-default-context-and-namespace-alist)
+      '("my-context" . "my-namespace"))
+@end lisp
+
 @end defopt
 
-As mentioned above, most Kubed commands use the local context and
-namespace by default---it is also conventional for Kubed commands to
-let you choose a different namespace if you invoke them with a prefix
-argument (@kbd{C-u}), and to also let you choose a different context
-if you invoke them with a double prefix argument (@kbd{C-u C-u}).
+@defvar kubed-default-context-and-namespace
+This is an obsolete variable that served a similar purpose as
+@code{kubed-default-context-and-namespace-alist} prior to Kubed gaining
+support for remote hosts.  For backward compatibility with user
+configurations that set this variable, Kubed by default initializes the
+local host entry in @code{kubed-default-context-and-namespace-alist}
+from the value of this variable if it is set.
+@end defvar
 
-The following functions return the local context and namespace for
-buffer in which you call them:
+As mentioned above, most Kubed commands use the buffer-local context and
+namespace if available by default.  It is also conventional for Kubed
+commands to let you choose a different namespace if you invoke them with
+a prefix argument (@kbd{C-u}), and to also let you choose a different
+context if you invoke them with a double prefix argument (@kbd{C-u C-u}).
+
+The following functions return the buffer-local context and namespace
+for the buffer in which you call them:
 
 @defun kubed-local-context
 Return the local @command{kubectl} context for the current buffer.
@@ -725,6 +763,56 @@ by simply typing @kbd{$}.  @xref{Browse Resources}.
 Lastly, you can scale deployments using the transient menu
 @code{kubed-transient-scale-deployment}, which is available from the
 main Kubed transient by pressing @kbd{$}.  @xref{Transient Menus}.
+
+@node Kubed over Tramp
+@section Kubed over Tramp
+
+@cindex remote hosts
+@cindex Tramp, Kubed integration
+@cindex @command{kubectl} on remote host
+Kubed can run @command{kubectl} on remote hosts, letting you manage
+Kubernetes clusters that are only reachable from a specific machine,
+or use a @command{kubectl} installation that lives on a remote server.
+This works by leveraging Emacs's Tramp remote file access facility
+(@pxref{Top,,,tramp}).
+
+Essentially, Kubed respects the value of @code{default-directory} when
+deciding where to run @command{kubectl}.  When @code{default-directory}
+refers to a local directory, Kubed invokes the local @command{kubectl}.
+When @code{default-directory} refers to a remote directory (i.e., it is
+a Tramp file name), Kubed instead invokes @command{kubectl} on the
+corresponding remote host.  This means that you can point Kubed at a
+remote host simply by visiting a remote directory via Tramp---for
+example, by opening a file on a remote server with @kbd{C-x C-f} and
+Tramp file name syntax, such as @file{/ssh:user@@some.host:/home/user/}.
+
+Each remote host has its own independent set of @command{kubectl}
+contexts and namespaces.  Kubed keeps track of the default context and
+namespace per host in the user option
+@code{kubed-default-context-and-namespace-alist}
+(@pxref{Context and Namespace}).  When Kubed list buffers are showing
+resources fetched from a remote host, the buffer name includes
+@w{@samp{ from @var{host}}} to make it clear which host was used.
+
+@cindex @code{kubed-kubectl-program}, per-host
+You may have @command{kubectl} installed at different paths on different
+hosts, or you may want to use a wrapper script instead of the bare
+@command{kubectl} executable on some hosts.  Kubed consults the
+@emph{connection-local} value of option @code{kubed-kubectl-program} to
+determine how to invoke @command{kubectl}, so you can configure the
+@command{kubectl} executable per host.  For example, to tell Kubed to
+use @file{/home/user/.local/bin/kubectl} on @samp{some.host}, add the
+following to your Emacs initialization file:
+
+@lisp
+(connection-local-set-profile-variables
+ 'my-kubed-profile-for-somehost
+ '((kubed-kubectl-program . "/home/user/.local/bin/kubectl")))
+
+(connection-local-set-profiles
+ '(:application kubed :machine "some.host")
+ 'my-kubed-profile-for-somehost)
+@end lisp
 
 @node Extending Kubed
 @chapter Extending Kubed
