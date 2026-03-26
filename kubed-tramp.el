@@ -95,6 +95,32 @@
   (unless (assoc kubed-tramp-method tramp-methods)
     (user-error "Kubed Tramp support requires Tramp version 2.7 or later")))
 
+(defun kubed-tramp--previous-hop (vec)
+  (or
+   ;; Previous hop explicit in VEC.
+   (when-let ((hop (tramp-file-name-hop vec)))
+     (tramp-make-tramp-file-name
+      (tramp-dissect-hop-name (tramp-file-name-hop vec))))
+   ;; Implicit previous hop registered in `tramp-default-proxies-alist'.
+   (seq-some
+    (lambda (item)
+      ;; Here we replicate what `tramp-compute-multi-hops' does...
+      (when (and
+	     ;; Host.
+	     (string-match-p
+	      (or (eval (nth 0 item) t) "")
+	      (or (tramp-file-name-host-port vec) ""))
+	     ;; User.
+	     (string-match-p
+	      (or (eval (nth 1 item) t) "")
+	      (or (tramp-file-name-user-domain vec) "")))
+        (tramp-format-spec
+	 (eval (nth 2 item) t)
+	 (format-spec-make
+	  ?u (or (tramp-file-name-user vec) "")
+	  ?h (or (tramp-file-name-host vec) "")))))
+    tramp-default-proxies-alist)))
+
 (defun kubed-tramp-get-method-parameter-advice
     (of vec param &rest rest)
   "Respect connection-local value of `kubed-kubectl-program'."
@@ -103,10 +129,8 @@
       ;; When Tramp asks how to invoke kubectl on our behalf,
       ;; point it to the up-to-date (and possibly connection-local)
       ;; value of `kubed-kubectl-program'.
-      (if-let ((hop (tramp-file-name-hop vec)))
-          (let ((default-directory
-                 (tramp-make-tramp-file-name
-                  (tramp-dissect-hop-name (tramp-file-name-hop vec)))))
+      (if-let ((hop-dir (kubed-tramp--previous-hop vec)))
+          (let ((default-directory hop-dir))
             (connection-local-value kubed-kubectl-program 'kubed))
         kubed-kubectl-program)
     (apply of vec param rest)))
