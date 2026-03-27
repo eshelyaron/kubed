@@ -102,7 +102,7 @@ defaults to \"RESOURCEs\"."
          ("/" ,(format "%s" (capitalize resource)) ,(concat plural "/")
           :class transient-option
           :always-read t
-          :prompt ,(format "%s name: " (capitalize resource))
+          :prompt "Show logs for"
           :reader (lambda (prompt _initial-input _history)
                     (let* ((context (seq-some (lambda (s)
                                                 (and (cl-typep s 'transient-infix)
@@ -120,7 +120,7 @@ defaults to \"RESOURCEs\"."
                                                      (oref s value)))
                                               transient--suffixes)))
                       (,(intern (format "kubed-read-%s" resource))
-                       "Show logs for" default nil context namespace))))]
+                       prompt default nil context namespace))))]
         ["Switches"
          ("-A" "All containers" "--all-containers")
          ("-f" "Stream logs" "--follow")
