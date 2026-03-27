@@ -47,6 +47,15 @@ This user option generalizes and supersedes the existing user option
 but is still available.  The new user option lets you set different
 defaults depending on the host on which Kubed is running ~kubectl~.
 
+** New user option ~kubed-logs-tail-lines~
+
+When you press ~l~ in a resource list buffer to show logs for the
+resource at point, Kubed now shows only the most recent 128 log lines
+by default, to avoid flooding the logs buffer with the full history of
+long-running workloads.  You can customize this limit with the new
+user option ~kubed-logs-tail-lines~; set it to 0 to restore the
+previous behavior of fetching all available log lines.
+
 * Version 0.5.1 on 2026-02-13
 
 ** Fix error with minibuffer completion for custom Kubernetes resources

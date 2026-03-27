@@ -90,6 +90,13 @@ by default it is `yaml-ts-mode'."
   "List of functions to call when setting up Kubernetes pod logs buffers."
   :type 'hook)
 
+(defcustom kubed-logs-tail-lines 128
+  "Number of most recent log lines to show with `kubed-list-logs'.
+
+The value 0 says to fetch and show all available log lines without limit."
+  :type '(choice (const :tag "All" 0)
+                 (natnum :tag "Number of lines")))
+
 (defcustom kubed-name-column '("Name" 48 t)
   "Specification of resource name column in Kubernetes resource list buffers."
   :type '(list string natnum boolean))
@@ -902,8 +909,9 @@ regardless of QUIET."
   "Show logs for Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
   (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
-      (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
-                  t t nil t)
+      (let ((lines (unless (zerop kubed-logs-tail-lines) kubed-logs-tail-lines)))
+        (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
+                    t t nil t nil lines))
     (user-error "No Kubernetes resource at point")))
 
 (defun kubed-list-create (definition &optional kind)
