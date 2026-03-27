@@ -544,6 +544,10 @@ If FILTER is omitted or nil, it defaults to `kubed-list-filter'."
 (defvar-local kubed-list-transient-extra-suffixes nil
   "List of transient suffixes for the type of resources in current buffer.")
 
+(defsubst kubed--event-point (event)
+  "Return buffer position of EVENT."
+  (posn-point (event-start event)))
+
 (defun kubed-list-go-to-line (id)
   "Go to beginning of table line with ID."
   (let ((proc (alist-get 'process
@@ -744,7 +748,7 @@ to 1."
 (defun kubed-list-copy-as-kill (click)
   "Copy name of Kubernetes resource at CLICK into the kill ring."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((ent (tabulated-list-get-entry (mouse-set-point click)))
+  (if-let ((ent (tabulated-list-get-entry (kubed--event-point click)))
            (new (aref ent 0)))
       (progn
         (kill-new new)
@@ -753,7 +757,7 @@ to 1."
 
 (defun kubed-list-context-menu (menu click)
   "Extend MENU with common actions on Kubernetes resource at CLICK."
-  (when (tabulated-list-get-entry (posn-point (event-start click)))
+  (when (tabulated-list-get-entry (kubed--event-point click))
     (define-key menu [kubed-list-select-resource]
                 '(menu-item "Select" kubed-list-select-resource))
     (define-key menu [kubed-list-display-resource]
@@ -833,7 +837,7 @@ regardless of QUIET."
 (defun kubed-list-display-resource (click)
   "Display Kubernetes resource at CLICK in another window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-display-resource
        kubed-list-type resource kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -841,7 +845,7 @@ regardless of QUIET."
 (defun kubed-list-select-resource (click)
   "Display Kubernetes resource at CLICK in current window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (switch-to-buffer
        (kubed-display-resource-in-buffer
         (concat "*Kubed "
@@ -854,7 +858,7 @@ regardless of QUIET."
 (defun kubed-list-select-resource-other-window (click)
   "Display Kubernetes resource at CLICK in other window and select that window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (switch-to-buffer-other-window
        (kubed-display-resource-in-buffer
         (concat "*Kubed "
@@ -867,7 +871,7 @@ regardless of QUIET."
 (defun kubed-list-delete (click)
   "Delete Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (when (y-or-n-p (format "Delete `%s'?" resource))
         (kubed-delete-resources kubed-list-type (list resource)
                                 kubed-list-context kubed-list-namespace))
@@ -876,7 +880,7 @@ regardless of QUIET."
 (defun kubed-list-patch (click)
   "Patch Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-patch kubed-list-type resource
                    (kubed-read-patch) kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -884,7 +888,7 @@ regardless of QUIET."
 (defun kubed-list-edit (click)
   "Edit Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-edit-resource kubed-list-type resource
                            kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -892,7 +896,7 @@ regardless of QUIET."
 (defun kubed-list-kubectl-command (click)
   "Use Kubernetes resource at CLICK as argument for `kubectl' command."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-kubectl-command
        (kubed-read-kubectl-command
         "Execute command: "
@@ -908,7 +912,7 @@ regardless of QUIET."
 (defun kubed-list-logs (click)
   "Show logs for Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (mouse-set-point click))))
+  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (let ((lines (unless (zerop kubed-logs-tail-lines) kubed-logs-tail-lines)))
         (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
                     t t nil t nil lines))
@@ -1560,7 +1564,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                                              (and (equal context kubed-list-context)
                                                   (equal namespace kubed-list-namespace)
                                                   (equal ,(symbol-name plrl-var) kubed-list-type)
-                                                  (tabulated-list-get-id (mouse-set-point last-nonmenu-event)))
+                                                  (tabulated-list-get-id (kubed--event-point last-nonmenu-event)))
                                              nil context namespace))
                   (list ,resource context namespace
                         ,(if (eq resource 'pod)
@@ -1578,7 +1582,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
               `(defun ,(intern (format "kubed-%S-%S" plrl-var suffix)) (,click-var)
                  ,(format "%s Kubernetes %S at point." desc resource)
                  (interactive (list last-nonmenu-event) ,mod-name)
-                 (if-let ((,resource (tabulated-list-get-id (mouse-set-point ,click-var))))
+                 (if-let ((,resource (tabulated-list-get-id (kubed--event-point ,click-var))))
                      (progn ,@body)
                    (user-error ,(format "No Kubernetes %S at point" resource)))))
             commands))
@@ -1614,7 +1618,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
 
        (defun ,ctxt-fun (menu . ,(if commands '(click) '(_click)))
          ,@(when commands
-             `((when (tabulated-list-get-entry (posn-point (event-start click)))
+             `((when (tabulated-list-get-entry (kubed--event-point click))
                  ,@(mapcar
                     (pcase-lambda (`(,suffix ,_key ,desc . ,_body))
                       `(define-key
