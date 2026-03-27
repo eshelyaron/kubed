@@ -621,7 +621,7 @@ with the resource pre-selected.  Kubed also pre-populates the
 can adjust before invoking the command.  @xref{Transient Menus}.
 @end table
 
-Two user options control the default behavior these commands:
+Two user options control the default behavior of these commands:
 
 @defopt kubed-logs-tail-lines
 Number of most recent log lines to fetch and show when displaying

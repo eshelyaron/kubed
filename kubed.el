@@ -1579,7 +1579,15 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                                   (kubed-read-container pod "Container" t
                                                         context namespace))
                            'container)
-                        follow limit prefix since tail timestamps)))
+                        (or follow
+                            (unless (bound-and-true-p transient-current-command)
+                              kubed-logs-follow))
+                        limit prefix since
+                        (or tail
+                            (unless (or (bound-and-true-p transient-current-command)
+                                        (zerop kubed-logs-tail-lines))
+                              kubed-logs-tail-lines))
+                        timestamps)))
                (kubed-logs ,(symbol-name plrl-var) ,resource context namespace container
                            follow limit prefix since tail timestamps))))
 
@@ -3014,10 +3022,14 @@ argument, also prompt for CONTEXT."
                (and (string= type "pods")
                     (kubed-read-container resource "Container" t
                                           context namespace)))
-           (or follow kubed-logs-follow)
+           (or follow
+               (unless (bound-and-true-p transient-current-command)
+                 kubed-logs-follow))
            limit prefix since
-           (or tail (and (not (zerop kubed-logs-tail-lines))
-                         kubed-logs-tail-lines))
+           (or tail
+               (unless (or (bound-and-true-p transient-current-command)
+                           (zerop kubed-logs-tail-lines))
+                 kubed-logs-tail-lines))
            timestamps)))
   (let* ((context (or context (kubed-local-context)))
          (namespace (or namespace (kubed--namespace context)))
