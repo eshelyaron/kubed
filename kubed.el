@@ -986,6 +986,7 @@ number at point, or the numeric prefix argument if you provide one."
   (tabulated-list-print t)
   (tabulated-list-init-header))
 
+(declare-function kubed-transient                      "kubed-transient" ())
 (declare-function kubed-list-transient                 "kubed-transient" ())
 (declare-function kubed-transient-logs-for-pod         "kubed-transient" (val))
 (declare-function kubed-transient-logs-for-deployment  "kubed-transient" (val))
@@ -3630,6 +3631,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "d" 'kubed-deployment-prefix-map
   "i" 'kubed-ingress-prefix-map
   "c" 'kubed-cronjob-prefix-map
+  "k" #'kubed-transient
   "L" #'kubed-logs
   "C" #'kubed-use-context
   "+" #'kubed-create

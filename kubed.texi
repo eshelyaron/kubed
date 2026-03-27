@@ -769,13 +769,16 @@ set a maximum number of logs to retrieve, among other knobs and handles.
 Command @code{kubed-transient} opens the Kubed ``root'' transient
 menu, which is a dispatch that lets you access different transient
 menus, such as the aforementioned ``Kubernetes Logs'' transient menu.
-It's a good idea to bind @code{kubed-transient} to a convenient key,
-either in the global keymap or under @code{kubed-prefix-map}:
+It's a good idea to bind @code{kubed-transient} to a convenient key:
 
 @lisp
 (keymap-global-set "s-k" #'kubed-transient)
-(keymap-set kubed-prefix-map "k" #'kubed-transient)
 @end lisp
+
+By default, @code{kubed-transient} is bound to @kbd{k} in
+@code{kubed-prefix-map}, so if you bind the prefix map to @kbd{C-c k}
+you can open the root transient menu with @kbd{C-c k k}.
+@xref{Definition of kubed-prefix-map}.
 
 In Kubed resource list buffers, type @kbd{?} to pop up a transient
 menu with commands that are specific to the type of resources the
