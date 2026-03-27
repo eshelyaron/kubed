@@ -210,6 +210,7 @@ The following sections describe in detail the various Kubed commands.
 @menu
 * Display Resource::
 * Browse Resources::
+* Resource Logs::
 * Context and Namespace::
 * Transient Menus::
 * Scale Deployment::
@@ -586,6 +587,61 @@ While entering a filter in the minibuffer, @kbd{@key{TAB}} completion
 is available for column names and values.  To clear the filter, just
 exit the minibuffer with an empty input.
 
+@node Resource Logs
+@section Resource Logs
+
+Kubed lets you view logs of containers running in Kubernetes, using
+@command{kubectl logs} under the hood.  The most general command for
+viewing logs is @code{kubed-logs}, which is bound to @kbd{L} in
+@code{kubed-prefix-map} (@pxref{Definition of kubed-prefix-map}):
+
+@deffn Command kubed-logs
+Show logs for containers running in a Kubernetes resource.  This command
+asks you for a resource type and name, and pops up a buffer with the
+logs of the containers running in that resource.
+@end deffn
+
+In resource list buffers that support logs---such as those for pods,
+deployments, services, and jobs---you can view logs for the resource
+at point directly:
+
+@table @kbd
+@kindex l
+@findex kubed-list-logs
+@item l
+Show logs for the resource at point (@code{kubed-list-logs}).  Kubed
+opens a new buffer with the log output.
+
+@kindex L
+@item L
+Open a type-specific logs transient menu for the resource at point,
+with the resource pre-selected.  Kubed also pre-populates the
+@samp{--tail} and @samp{--follow} options from
+@code{kubed-logs-tail-lines} and @code{kubed-logs-follow}, which you
+can adjust before invoking the command.  @xref{Transient Menus}.
+@end table
+
+Two user options control the default behavior these commands:
+
+@defopt kubed-logs-tail-lines
+Number of most recent log lines to fetch and show when displaying
+Kubernetes logs.  The default is 128.  Set this option to 0 to show all
+available log lines without limit.
+@end defopt
+
+@defopt kubed-logs-follow
+Whether to follow new log entries when displaying Kubernetes logs.
+The default is @code{t}.
+@end defopt
+
+When Kubed sets up a buffer for displaying logs, it runs the
+following hook:
+
+@defopt kubed-logs-setup-hook
+List of functions to call, in order, to set up Kubernetes logs
+buffers.  The default value is @code{(view-mode)}.
+@end defopt
+
 @node Context and Namespace
 @section Context and Namespace
 
@@ -687,9 +743,9 @@ Additionally, the transient menus allow you to specify options and
 switches for the commands you invoke, which may not be available when
 invoking these commands directly.  For example, while you can invoke
 command @code{kubed-logs} directly to view logs from a container
-running in Kubernetes, the ``Kubernetes Logs'' transient menu which
-you open with @code{kubed-transient-logs} lets you set a maximum
-number of logs to retrieve, among other knobs and handles.
+running in Kubernetes (@pxref{Resource Logs}), the ``Kubernetes Logs''
+transient menu which you open with @code{kubed-transient-logs} lets you
+set a maximum number of logs to retrieve, among other knobs and handles.
 
 @float
 

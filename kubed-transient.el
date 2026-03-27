@@ -79,6 +79,7 @@ Return an RFC3339 string representation of the selected date."
 
 Optional argument PLURAL is the plural form of RESOURCE.  If nil, it
 defaults to \"RESOURCEs\"."
+  (setq plural (or plural (concat resource "s")))
   (let ((name (intern (concat "kubed-transient-logs-for-" resource))))
     `(transient-define-prefix ,name (&optional value)
        ,(format "Show logs for a Kubernetes %s." resource)
@@ -87,6 +88,7 @@ defaults to \"RESOURCEs\"."
          ("l" "Show Logs" ,(intern (concat "kubed-logs-for-" resource)))
          ("!" "Command line" kubed-kubectl-command)]
         ["Options"
+         :pad-keys t
          ("-n" "Namespace" "--namespace="
           :prompt "Namespace" :reader kubed-transient-read-namespace)
          ("-C" "Context" "--context="
@@ -96,19 +98,45 @@ defaults to \"RESOURCEs\"."
          ("-t" "Limit lines" "--tail="
           :prompt "Lines limit: " :reader transient-read-number-N+)
          ("-S" "Since time" "--since-time="
-          :prompt "Since time: " :reader kubed-transient-read-date)]
+          :prompt "Since time: " :reader kubed-transient-read-date)
+         ("/" ,(format "%s" (capitalize resource)) ,(concat plural "/")
+          :class transient-option
+          :always-read t
+          :prompt ,(format "%s name: " (capitalize resource))
+          :reader (lambda (prompt _initial-input _history)
+                    (let* ((context (seq-some (lambda (s)
+                                                (and (cl-typep s 'transient-infix)
+                                                     (equal (oref s argument) "--context=")
+                                                     (oref s value)))
+                                              transient--suffixes))
+                           (namespace (seq-some (lambda (s)
+                                                  (and (cl-typep s 'transient-infix)
+                                                       (equal (oref s argument) "--namespace=")
+                                                       (oref s value)))
+                                                transient--suffixes))
+                           (default (seq-some (lambda (s)
+                                                (and (cl-typep s 'transient-infix)
+                                                     (equal (oref s argument) ,(concat plural "/"))
+                                                     (oref s value)))
+                                              transient--suffixes)))
+                      (,(intern (format "kubed-read-%s" resource))
+                       "Show logs for" default nil context namespace))))]
         ["Switches"
          ("-A" "All containers" "--all-containers")
          ("-f" "Stream logs" "--follow")
          ("-P" "Add pod and container" "--prefix")
          ("-T" "Add timestamps" "--timestamps")]]
        (interactive
-        (list (kubed-transient-args 'kubed-transient-logs)))
+        (list (append
+               (kubed-transient-args)
+               (when-let ((res (tabulated-list-get-id)))
+                 (list (concat ,(concat plural "/") res)))
+               (unless (zerop kubed-logs-tail-lines)
+                 (list (format "--tail=%d" kubed-logs-tail-lines)))
+               (when kubed-logs-follow (list "--follow")))))
        (transient-setup ',name nil nil
                         :value value
-                        :scope '("logs" ,(concat (or plural
-                                                     (concat resource "s"))
-                                                 "/"))))))
+                        :scope '("logs")))))
 
 ;;;###autoload (autoload 'kubed-transient-logs-for-pod "kubed-transient" nil t)
 (kubed-transient-logs-for-resource "pod")
@@ -132,7 +160,7 @@ defaults to \"RESOURCEs\"."
 (kubed-transient-logs-for-resource "statefulset")
 
 ;;;###autoload (autoload 'kubed-transient-logs "kubed-transient" nil t)
-(transient-define-prefix kubed-transient-logs ()
+(transient-define-prefix kubed-transient-logs (&optional value)
   "Show logs for containers running in Kubernetes."
   ["Kubernetes Logs\n"
    ["Kinds"
@@ -158,8 +186,14 @@ defaults to \"RESOURCEs\"."
     ("-f" "Stream logs" "--follow")
     ("-P" "Add pod and container" "--prefix")
     ("-T" "Add timestamps" "--timestamps")]]
-  (interactive)
+  (interactive
+   (list (append
+          (kubed-transient-args)
+          (unless (zerop kubed-logs-tail-lines)
+            (list (format "--tail=%d" kubed-logs-tail-lines)))
+          (when kubed-logs-follow (list "--follow")))))
   (transient-setup 'kubed-transient-logs nil nil
+                   :value value
                    :scope '("logs")))
 
 ;;;###autoload (autoload 'kubed-transient-scale-deployment "kubed-transient" nil t)

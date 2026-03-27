@@ -91,11 +91,14 @@ by default it is `yaml-ts-mode'."
   :type 'hook)
 
 (defcustom kubed-logs-tail-lines 128
-  "Number of most recent log lines to show with `kubed-list-logs'.
+  "Number of most recent log lines to fetch and show in Kubernetes logs buffers.
 
 The value 0 says to fetch and show all available log lines without limit."
-  :type '(choice (const :tag "All" 0)
-                 (natnum :tag "Number of lines")))
+  :type '(natnum :tag "Number of lines (0 for all)"))
+
+(defcustom kubed-logs-follow t
+  "Whether to \"follow\" new logs in Kubernetes logs buffers."
+  :type 'boolean)
 
 (defcustom kubed-name-column '("Name" 48 t)
   "Specification of resource name column in Kubernetes resource list buffers."
@@ -915,7 +918,7 @@ regardless of QUIET."
   (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
       (let ((lines (unless (zerop kubed-logs-tail-lines) kubed-logs-tail-lines)))
         (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
-                    t t nil t nil lines))
+                    t kubed-logs-follow nil t nil lines))
     (user-error "No Kubernetes resource at point")))
 
 (defun kubed-list-create (definition &optional kind)
@@ -1538,6 +1541,8 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                   (dolist (arg (kubed-transient-args
                                 ',logs-trs))
                     (cond
+                     ((string-match ,(format "%S/\\(.+\\)" plrl-var) arg)
+                      (setq ,resource (match-string 1 arg)))
                      ((string-match "--namespace=\\(.+\\)" arg)
                       (setq namespace (match-string 1 arg)))
                      ((string-match "--context=\\(.+\\)" arg)
@@ -1560,12 +1565,13 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                               cxt))))
                   (unless namespace
                     (setq namespace (kubed--namespace context current-prefix-arg)))
-                  (setq ,resource (,read-fun "Show logs for"
-                                             (and (equal context kubed-list-context)
-                                                  (equal namespace kubed-list-namespace)
-                                                  (equal ,(symbol-name plrl-var) kubed-list-type)
-                                                  (tabulated-list-get-id (kubed--event-point last-nonmenu-event)))
-                                             nil context namespace))
+                  (unless ,resource
+                    (setq ,resource (,read-fun "Show logs for"
+                                               (and (equal context kubed-list-context)
+                                                    (equal namespace kubed-list-namespace)
+                                                    (equal ,(symbol-name plrl-var) kubed-list-type)
+                                                    (tabulated-list-get-id (kubed--event-point last-nonmenu-event)))
+                                               nil context namespace)))
                   (list ,resource context namespace
                         ,(if (eq resource 'pod)
                              '(or container
@@ -3007,7 +3013,11 @@ argument, also prompt for CONTEXT."
                (and (string= type "pods")
                     (kubed-read-container resource "Container" t
                                           context namespace)))
-           follow limit prefix since tail timestamps)))
+           (or follow kubed-logs-follow)
+           limit prefix since
+           (or tail (and (not (zerop kubed-logs-tail-lines))
+                         kubed-logs-tail-lines))
+           timestamps)))
   (let* ((context (or context (kubed-local-context)))
          (namespace (or namespace (kubed--namespace context)))
          (buf (generate-new-buffer
@@ -3134,7 +3144,7 @@ them as list."
 (defun kubed-transient-args (&optional prefix)
   "Return current arguments from transient PREFIX.
 
-If PREFIX nil, it defaults to the value of `transient-current-command'."
+If PREFIX is nil, it defaults to the value of `transient-current-command'."
   (when-let ((prefix (or prefix (bound-and-true-p transient-current-command))))
     (and (featurep 'kubed-transient)
          (fboundp 'transient-args)
@@ -3620,6 +3630,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "d" 'kubed-deployment-prefix-map
   "i" 'kubed-ingress-prefix-map
   "c" 'kubed-cronjob-prefix-map
+  "L" #'kubed-logs
   "C" #'kubed-use-context
   "+" #'kubed-create
   "*" #'kubed-apply
@@ -3653,6 +3664,7 @@ Interactively, prompt for COMMAND with completion for `kubectl' arguments."
   "<kubectl-command>"  '("Invoke kubectl"        . kubed-kubectl-command)
   "<explain>"          '("Explain Type or Field" . kubed-explain)
   "<use-context>"      '("Set Current Context"   . kubed-use-context)
+  "<logs>"             '("View Logs"             . kubed-logs)
   "<run>"              '("Run Image"             . kubed-run)
   "<apply>"            '("Apply Config"          . kubed-apply)
   "<create>"           '("Create Resource"       . kubed-create)
