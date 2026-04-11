@@ -10,7 +10,7 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.6.0 in development
+* Version 0.6.0 on 2026-04-11
 
 ** Kubed now uses the remote ~kubectl~ on remote hosts
 
