@@ -121,18 +121,25 @@
 	  ?h (or (tramp-file-name-host vec) "")))))
     tramp-default-proxies-alist)))
 
-(defun kubed-tramp-get-method-parameter-advice
-    (of vec param &rest rest)
-  "Respect connection-local value of `kubed-kubectl-program'."
+(defun kubed-tramp--login-program (vec)
+  "Return `kubectl' program to use for connection VEC.
+
+Respect the connection-local value of user option `kubed-kubectl-program'."
+  (if-let ((hop-dir (kubed-tramp--previous-hop vec)))
+      (let ((default-directory hop-dir))
+        (connection-local-value kubed-kubectl-program 'kubed))
+    kubed-kubectl-program))
+
+(defun kubed-tramp-get-method-parameter-advice (of vec param &rest rest)
   (if (and (eq param 'tramp-login-program)
-           (equal (tramp-file-name-method vec) kubed-tramp-method))
+           (member (tramp-file-name-method vec)
+                   `(,kubed-tramp-method
+                     ;; Old versions:
+                     "kubedv1")))
       ;; When Tramp asks how to invoke kubectl on our behalf,
       ;; point it to the up-to-date (and possibly connection-local)
       ;; value of `kubed-kubectl-program'.
-      (if-let ((hop-dir (kubed-tramp--previous-hop vec)))
-          (let ((default-directory hop-dir))
-            (connection-local-value kubed-kubectl-program 'kubed))
-        kubed-kubectl-program)
+      (kubed-tramp--login-program vec)
     (apply of vec param rest)))
 
 ;;;###autoload
@@ -148,7 +155,7 @@
                     ;; that gives the up-to-date (and possibly
                     ;; connection-local, for remote hosts) value of
                     ;; `kubed-kubectl-program' when Tramp asks.
-                    (tramp-login-program ,kubed-kubectl-program)
+                    (tramp-login-program "%1")
                     (tramp-login-args (("exec")
                                        ("--context" "%x")
                                        ("--namespace" "%y")
@@ -168,10 +175,11 @@
       (connection-local-set-profile-variables
        'kubed-tramp-connection-local-default-profile
        '((tramp-extra-expand-args
-          ?a (kubed-tramp--container  (car tramp-current-connection))
-          ?h (kubed-tramp--pod        (car tramp-current-connection))
-          ?x (kubed-tramp--context    (car tramp-current-connection))
-          ?y (kubed-tramp--namespace  (car tramp-current-connection)))))
+          ?1 (kubed-tramp--login-program (car tramp-current-connection))
+          ?a (kubed-tramp--container     (car tramp-current-connection))
+          ?h (kubed-tramp--pod           (car tramp-current-connection))
+          ?x (kubed-tramp--context       (car tramp-current-connection))
+          ?y (kubed-tramp--namespace     (car tramp-current-connection)))))
 
       (connection-local-set-profiles
        '(:application tramp :protocol "kubedv1")
@@ -183,18 +191,24 @@
       (connection-local-set-profile-variables
        'kubed-tramp-v2-connection-local-default-profile
        '((tramp-extra-expand-args
-          ?a (kubed-tramp--container  (car tramp-current-connection))
-          ?h (kubed-tramp--pod        (car tramp-current-connection))
-          ?x (kubed-tramp--v2-context (car tramp-current-connection))
-          ?y (kubed-tramp--namespace  (car tramp-current-connection)))))
+          ?1 (kubed-tramp--login-program (car tramp-current-connection))
+          ?a (kubed-tramp--container     (car tramp-current-connection))
+          ?h (kubed-tramp--pod           (car tramp-current-connection))
+          ?x (kubed-tramp--v2-context    (car tramp-current-connection))
+          ?y (kubed-tramp--namespace     (car tramp-current-connection)))))
 
       (connection-local-set-profiles
        `(:application tramp :protocol ,kubed-tramp-method)
        'kubed-tramp-v2-connection-local-default-profile))
 
-    (advice-add 'tramp-get-method-parameter :around
-                #'kubed-tramp-get-method-parameter-advice
-                '((name . kubed)))))
+    (when (version< tramp-version "2.8.1.4")
+      ;; Arg expansion for `tramp-login-program' was added in 2.8.1.4;
+      ;; for earlier versions we advise `tramp-get-method-parameter' to
+      ;; get the right value.
+      ;; (See https://lists.gnu.org/r/tramp-devel/2026-03/msg00000.html)
+      (advice-add 'tramp-get-method-parameter :around
+                  #'kubed-tramp-get-method-parameter-advice
+                  '((name . kubed))))))
 
 ;;;###autoload (with-eval-after-load 'tramp (kubed-tramp-enable))
 
