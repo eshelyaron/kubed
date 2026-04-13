@@ -201,11 +201,17 @@ Respect the connection-local value of user option `kubed-kubectl-program'."
        `(:application tramp :protocol ,kubed-tramp-method)
        'kubed-tramp-v2-connection-local-default-profile))
 
-    (when (version< tramp-version "2.8.1.4")
+    (when (or (version< tramp-version "2.8.1.4")
+              (not (fboundp 'tramp-suppress-remote-file-name-inhibit-cache)))
       ;; Arg expansion for `tramp-login-program' was added in 2.8.1.4;
       ;; for earlier versions we advise `tramp-get-method-parameter' to
       ;; get the right value.
       ;; (See https://lists.gnu.org/r/tramp-devel/2026-03/msg00000.html)
+      ;; The check for `tramp-suppress-remote-file-name-inhibit-cache'
+      ;; is for the benefit of users of the development version of Emacs
+      ;; (31.0.50, which has `tramp-version' 2.8.2-pre) prior to the
+      ;; addition of the new arg expansion, since this function happened
+      ;; to be added shortly after.
       (advice-add 'tramp-get-method-parameter :around
                   #'kubed-tramp-get-method-parameter-advice
                   '((name . kubed))))))
