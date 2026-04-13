@@ -155,7 +155,7 @@ Respect the connection-local value of user option `kubed-kubectl-program'."
                     ;; that gives the up-to-date (and possibly
                     ;; connection-local, for remote hosts) value of
                     ;; `kubed-kubectl-program' when Tramp asks.
-                    (tramp-login-program "%1")
+                    (tramp-login-program "%b")
                     (tramp-login-args (("exec")
                                        ("--context" "%x")
                                        ("--namespace" "%y")
@@ -175,7 +175,7 @@ Respect the connection-local value of user option `kubed-kubectl-program'."
       (connection-local-set-profile-variables
        'kubed-tramp-connection-local-default-profile
        '((tramp-extra-expand-args
-          ?1 (kubed-tramp--login-program (car tramp-current-connection))
+          ?b (kubed-tramp--login-program (car tramp-current-connection))
           ?a (kubed-tramp--container     (car tramp-current-connection))
           ?h (kubed-tramp--pod           (car tramp-current-connection))
           ?x (kubed-tramp--context       (car tramp-current-connection))
@@ -191,7 +191,7 @@ Respect the connection-local value of user option `kubed-kubectl-program'."
       (connection-local-set-profile-variables
        'kubed-tramp-v2-connection-local-default-profile
        '((tramp-extra-expand-args
-          ?1 (kubed-tramp--login-program (car tramp-current-connection))
+          ?b (kubed-tramp--login-program (car tramp-current-connection))
           ?a (kubed-tramp--container     (car tramp-current-connection))
           ?h (kubed-tramp--pod           (car tramp-current-connection))
           ?x (kubed-tramp--v2-context    (car tramp-current-connection))
