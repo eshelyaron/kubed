@@ -10,6 +10,17 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.6.1 on 2026-04-13
+
+This is a maintenance release, it includes one important bug fix:
+
+** Fix "Invalid format string" error in Tramp integration
+
+This version fixes a regression introduced in version 0.6.0, which
+caused an error when starting a shell or opening Dired inside a pod.
+
+See bug report at https://lists.sr.ht/~eshel/kubed-devel/%3C87zf36vqaa.fsf@gmail.com%3E
+
 * Version 0.6.0 on 2026-04-11
 
 ** Kubed now uses the remote ~kubectl~ on remote hosts
