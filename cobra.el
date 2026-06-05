@@ -34,7 +34,7 @@ Perform completion action A on string S with predicate P."
                    (lambda (cand)
                      (list
                       cand ""
-                      (if-let
+                      (if-let*
                           ((desc (get-text-property
                                   0 'cobra-argument-description
                                   cand)))

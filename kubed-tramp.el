@@ -40,34 +40,34 @@
 
 (defun kubed-tramp--v2-context (vec)
   "Extract the context name from a kubernetes host name in VEC."
-  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+  (or (when-let* ((host (and vec (tramp-file-name-host vec))))
         (shell-quote-argument
          (decode-coding-string
-         (kubed-tramp--decode-context-name (nth 0 (split-string host "%")))
-         'utf-8)))
+          (kubed-tramp--decode-context-name (nth 0 (split-string host "%")))
+          'utf-8)))
       ""))
 
 (defun kubed-tramp--context (vec)
   "Extract the context name from a kubernetes host name in VEC."
-  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+  (or (when-let* ((host (and vec (tramp-file-name-host vec))))
         (nth 0 (split-string host "%")))
       ""))
 
 (defun kubed-tramp--namespace (vec)
   "Extract the namespace from a kubernetes host name in VEC."
-  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+  (or (when-let* ((host (and vec (tramp-file-name-host vec))))
         (nth 1 (split-string host "%")))
       ""))
 
 (defun kubed-tramp--pod (vec)
   "Extract the pod name from a kubernetes host name in VEC."
-  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+  (or (when-let* ((host (and vec (tramp-file-name-host vec))))
         (nth 2 (split-string host "%")))
       ""))
 
 (defun kubed-tramp--container (vec)
   "Extract the container name from a kubernetes host name in VEC."
-  (or (when-let ((host (and vec (tramp-file-name-host vec))))
+  (or (when-let* ((host (and vec (tramp-file-name-host vec))))
         (nth 3 (split-string host "%")))
       ""))
 
@@ -98,7 +98,7 @@
 (defun kubed-tramp--previous-hop (vec)
   (or
    ;; Previous hop explicit in VEC.
-   (when-let ((hop (tramp-file-name-hop vec)))
+   (when-let* ((hop (tramp-file-name-hop vec)))
      (tramp-make-tramp-file-name
       (tramp-dissect-hop-name (tramp-file-name-hop vec))))
    ;; Implicit previous hop registered in `tramp-default-proxies-alist'.
@@ -125,7 +125,7 @@
   "Return `kubectl' program to use for connection VEC.
 
 Respect the connection-local value of user option `kubed-kubectl-program'."
-  (if-let ((hop-dir (kubed-tramp--previous-hop vec)))
+  (if-let* ((hop-dir (kubed-tramp--previous-hop vec)))
       (let ((default-directory hop-dir))
         (connection-local-value kubed-kubectl-program 'kubed))
     kubed-kubectl-program))

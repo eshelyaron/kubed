@@ -174,7 +174,7 @@ The value 0 says to fetch and show all available log lines without limit."
                          (let ((str (string-trim (buffer-substring
                                                   (+ (point) beg)
                                                   (+ (point) (car ends))))))
-                           (push (if-let ((f (cdr column))) (funcall f str) str)
+                           (push (if-let* ((f (cdr column))) (funcall f str) str)
                                  cols)
                            (setq beg (pop ends))))
                        (push (nreverse cols) new))
@@ -194,7 +194,7 @@ The value 0 says to fetch and show all available log lines without limit."
                           (with-current-buffer buf
                             (when (derived-mode-p 'kubed-list-mode)
                               (revert-buffer)
-                              (when-let ((win (get-buffer-window)))
+                              (when-let* ((win (get-buffer-window)))
                                 (set-window-point win (point))
                                 (push buf bufs))))))
                    (walk-windows
@@ -238,7 +238,7 @@ the namespace of the resource, or nil if TYPE is not namespaced.")
           (error "Failed to display Kubernetes resource `%s'" name))
         (let ((source (current-buffer)))
           (with-current-buffer target
-            (replace-buffer-contents source)
+            (replace-region-contents (point-min) (point-max) source)
             (set-buffer-modified-p nil)
             (buffer-enable-undo)))))))
 
@@ -342,11 +342,11 @@ prompt for CONTEXT as well."
                type name context namespace)
               "*")
       type name context namespace))
-    (when-let ((str (bookmark-get-front-context-string bookmark))
-               ((search-forward str (point-max) t)))
+    (when-let* ((str (bookmark-get-front-context-string bookmark))
+                ((search-forward str (point-max) t)))
       (goto-char (match-beginning 0)))
-    (when-let ((str (bookmark-get-rear-context-string bookmark))
-               ((search-backward str (point-min) t)))
+    (when-let* ((str (bookmark-get-rear-context-string bookmark))
+                ((search-backward str (point-min) t)))
       (goto-char (match-end 0)))))
 
 (put 'kubed-display-resource-handle-bookmark 'bookmark-handler-type "KubedResource")
@@ -638,8 +638,8 @@ of the error, push a mark before moving point."
                      (with-temp-buffer
                        (set-syntax-table emacs-lisp-mode-syntax-table)
                        (insert "(" cont)
-                       (when-let ((fn-argi (elisp--fnsym-in-current-sexp))
-                                  (argi (cadr fn-argi)))
+                       (when-let* ((fn-argi (elisp--fnsym-in-current-sexp))
+                                   (argi (cadr fn-argi)))
                          (if (= argi 0)
                              ;; Complete operators.
                              (list
@@ -652,13 +652,13 @@ of the error, push a mark before moving point."
                                (list (car bounds) (cdr bounds) cols))
                               ((= argi 2)
                                ;; Complete column values.
-                               (when-let ((beg (nth 1 (syntax-ppss)))
-                                          ;; Grab preceding symbol.
-                                          (col (save-excursion
-                                                 (goto-char beg)
-                                                 (forward-char 1)
-                                                 (forward-sexp 2)
-                                                 (thing-at-point 'symbol))))
+                               (when-let* ((beg (nth 1 (syntax-ppss)))
+                                           ;; Grab preceding symbol.
+                                           (col (save-excursion
+                                                  (goto-char beg)
+                                                  (forward-char 1)
+                                                  (forward-sexp 2)
+                                                  (thing-at-point 'symbol))))
                                  (list (car bounds) (cdr bounds)
                                        (alist-get col vals
                                                   nil nil #'string=)))))))))))
@@ -706,7 +706,7 @@ atomic FILTER (= Name foobar).
 
 See also Info node \"(kubed) List Filter\"."
   (interactive (list (kubed-list-read-filter "Set filter")) kubed-list-mode)
-  (when-let ((validation-error (kubed-list-validate-filter filter)))
+  (when-let* ((validation-error (kubed-list-validate-filter filter)))
     (user-error validation-error))
   (setq-local kubed-list-filter filter)
   (revert-buffer))
@@ -751,8 +751,8 @@ to 1."
 (defun kubed-list-copy-as-kill (click)
   "Copy name of Kubernetes resource at CLICK into the kill ring."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((ent (tabulated-list-get-entry (kubed--event-point click)))
-           (new (aref ent 0)))
+  (if-let* ((ent (tabulated-list-get-entry (kubed--event-point click)))
+            (new (aref ent 0)))
       (progn
         (kill-new new)
         (message "Copied resource name `%s'" new))
@@ -840,7 +840,7 @@ regardless of QUIET."
 (defun kubed-list-display-resource (click)
   "Display Kubernetes resource at CLICK in another window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-display-resource
        kubed-list-type resource kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -848,7 +848,7 @@ regardless of QUIET."
 (defun kubed-list-select-resource (click)
   "Display Kubernetes resource at CLICK in current window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (switch-to-buffer
        (kubed-display-resource-in-buffer
         (concat "*Kubed "
@@ -861,7 +861,7 @@ regardless of QUIET."
 (defun kubed-list-select-resource-other-window (click)
   "Display Kubernetes resource at CLICK in other window and select that window."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (switch-to-buffer-other-window
        (kubed-display-resource-in-buffer
         (concat "*Kubed "
@@ -874,7 +874,7 @@ regardless of QUIET."
 (defun kubed-list-delete (click)
   "Delete Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (when (y-or-n-p (format "Delete `%s'?" resource))
         (kubed-delete-resources kubed-list-type (list resource)
                                 kubed-list-context kubed-list-namespace))
@@ -883,7 +883,7 @@ regardless of QUIET."
 (defun kubed-list-patch (click)
   "Patch Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-patch kubed-list-type resource
                    (kubed-read-patch) kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -891,7 +891,7 @@ regardless of QUIET."
 (defun kubed-list-edit (click)
   "Edit Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-edit-resource kubed-list-type resource
                            kubed-list-context kubed-list-namespace)
     (user-error "No Kubernetes resource at point")))
@@ -899,7 +899,7 @@ regardless of QUIET."
 (defun kubed-list-kubectl-command (click)
   "Use Kubernetes resource at CLICK as argument for `kubectl' command."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (kubed-kubectl-command
        (kubed-read-kubectl-command
         "Execute command: "
@@ -915,7 +915,7 @@ regardless of QUIET."
 (defun kubed-list-logs (click)
   "Show logs for Kubernetes resource at CLICK."
   (interactive (list last-nonmenu-event) kubed-list-mode)
-  (if-let ((resource (tabulated-list-get-id (kubed--event-point click))))
+  (if-let* ((resource (tabulated-list-get-id (kubed--event-point click))))
       (let ((lines (unless (zerop kubed-logs-tail-lines) kubed-logs-tail-lines)))
         (kubed-logs kubed-list-type resource kubed-list-context kubed-list-namespace
                     t kubed-logs-follow nil t nil lines))
@@ -1083,7 +1083,7 @@ only (re)displays the existing data."
       (goto-char (point-min))
       (while (not (eobp))
         (let ((id (tabulated-list-get-id)))
-          (when-let ((mark (alist-get id marks nil nil #'equal)))
+          (when-let* ((mark (alist-get id marks nil nil #'equal)))
             (tabulated-list-put-tag mark)))
         (forward-line)))))
 
@@ -1183,9 +1183,9 @@ prompt for CONTEXT as well."
            context namespace)))
   (unless (bound-and-true-p server-process) (server-start))
   (let ((process-environment
-         (cons (if (boundp 'emacsclient-program-name)
-                   (concat "KUBE_EDITOR=" emacsclient-program-name)
-                 "KUBE_EDITOR=emacsclient")
+         (cons (concat "KUBE_EDITOR="
+                       (or (bound-and-true-p emacsclient-program-name)
+                           "emacsclient"))
                process-environment)))
     (apply #'start-file-process
            (format "*kubed-%S-edit*" type) nil
@@ -1597,7 +1597,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
               `(defun ,(intern (format "kubed-%S-%S" plrl-var suffix)) (,click-var)
                  ,(format "%s Kubernetes %S at point." desc resource)
                  (interactive (list last-nonmenu-event) ,mod-name)
-                 (if-let ((,resource (tabulated-list-get-id (kubed--event-point ,click-var))))
+                 (if-let* ((,resource (tabulated-list-get-id (kubed--event-point ,click-var))))
                      (progn ,@body)
                    (user-error ,(format "No Kubernetes %S at point" resource)))))
             commands))
@@ -1623,7 +1623,7 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                 (append
                  (list (capitalize (symbol-name (car p)))
                        (caddr p)
-                       (if-let ((sorter (cadddr p)))
+                       (if-let* ((sorter (cadddr p)))
                            `(lambda (l r)
                               (funcall ,sorter (aref (cadr l) ,i) (aref (cadr r) ,i)))
                          t))
@@ -1664,9 +1664,9 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
                                   ,(if namespaced
                                        `(concat "@" namespace "[" context "]")
                                      `(concat "[" context "]"))
-                                  (when-let ((host (file-remote-p default-directory)))
+                                  (when-let* ((host (file-remote-p default-directory)))
                                     (concat " from " host))))))
-           (if-let ((buf (get-buffer buf-name))) buf
+           (if-let* ((buf (get-buffer buf-name))) buf
              (with-current-buffer (get-buffer-create buf-name)
                (,mod-name)
                (setq kubed-list-context context
@@ -1764,7 +1764,7 @@ Interactively, use the current context.  With a prefix argument
 
 (defun kubed-remote-file-name (context namespace pod &optional file-name)
   "Return remote FILE-NAME for POD in NAMESPACE and CONTEXT."
-  (concat (if-let ((host (file-remote-p default-directory)))
+  (concat (if-let* ((host (file-remote-p default-directory)))
               (concat (substring host 0 (1- (length host))) "|")
             "/")
           kubed-tramp-method ":"
@@ -1787,12 +1787,12 @@ Interactively, use the current context.  With a prefix argument
     ((phase ".status.phase" 10
             nil                         ; sorting function
             (lambda (ph)
-              (if-let ((face (pcase ph
-                               ;; TODO: Define/derive bespoke faces.
-                               ("Pending"   'warning)
-                               ("Running"   'success)
-                               ("Succeeded" 'shadow)
-                               ("Failed"    'error))))
+              (if-let* ((face (pcase ph
+                                ;; TODO: Define/derive bespoke faces.
+                                ("Pending"   'warning)
+                                ("Running"   'success)
+                                ("Succeeded" 'shadow)
+                                ("Failed"    'error))))
                   (propertize ph 'face face)
                 ph)))
      (ready ".status.containerStatuses[?(.ready==true)].name" 6
@@ -1864,10 +1864,10 @@ Interactively, use the current context.  With a prefix argument
     ((phase ".status.phase" 10
             nil                         ; sorting function
             (lambda (ph)
-              (if-let ((face (pcase ph
-                               ;; TODO: Define/derive bespoke faces.
-                               ("Active"      'success)
-                               ("Terminating" 'shadow))))
+              (if-let* ((face (pcase ph
+                                ;; TODO: Define/derive bespoke faces.
+                                ("Active"      'success)
+                                ("Terminating" 'shadow))))
                   (propertize ph 'face face)
                 ph)))
      (creationtimestamp ".metadata.creationTimestamp" 20))
@@ -2640,7 +2640,7 @@ Interactively, prompt for CONTEXT with completion."
                       (error "`kubectl config view' failed"))
                     (let ((source (current-buffer)))
                       (with-current-buffer target
-                        (replace-buffer-contents source)
+                        (replace-region-contents (point-min) (point-max) source)
                         (set-buffer-modified-p nil)
                         (buffer-enable-undo))))))))
     (with-current-buffer buf
@@ -2672,15 +2672,15 @@ If no namespace is configured for CONTEXT, return nil."
 
 (defun kubed-local-context-and-namespace ()
   "Return (CONTEXT . NAMESPACE) pair local to the current buffer."
-  (or (when-let ((context kubed-list-context))
+  (or (when-let* ((context kubed-list-context))
         (cons context
               (or kubed-list-namespace
                   (kubed-current-namespace context))))
-      (when-let ((context (nth 2 kubed-display-resource-info)))
+      (when-let* ((context (nth 2 kubed-display-resource-info)))
         (cons context
               (or (nth 3 kubed-display-resource-info)
                   (kubed-current-namespace context))))
-      (when-let ((context (and (kubed-remote-file-name-p default-directory)
+      (when-let* ((context (and (kubed-remote-file-name-p default-directory)
                                (kubed-tramp-context default-directory))))
         (cons context (kubed-tramp-namespace default-directory)))
       (kubed-default-context-and-namespace)))
@@ -2743,8 +2743,8 @@ completion candidates."
        (let ((cache (make-hash-table :test 'equal)))
          (lambda (f)
            (or (file-directory-p f)
-               (when-let ((ext (and (string-match "\\.[^.]*\\'" f)
-                                    (substring f (1+ (match-beginning 0))))))
+               (when-let* ((ext (and (string-match "\\.[^.]*\\'" f)
+                                     (substring f (1+ (match-beginning 0))))))
                  (or (and (member ext '("yaml" "yml"))
                           (pcase (gethash (expand-file-name f) cache 'noval)
                             ('noval
@@ -3120,7 +3120,7 @@ one port-forwarding process, stop that process without prompting."
                        nil t))
      ((caar kubed-port-forward-process-alist))
      (t (user-error "No port-forwarding to Kubernetes in progress")))))
-  (if-let ((pair (assoc descriptor kubed-port-forward-process-alist)))
+  (if-let* ((pair (assoc descriptor kubed-port-forward-process-alist)))
       (delete-process (cdr pair))
     (error "No port-forwarding for %s" descriptor))
   (message "Stopped port-forwarding for %s" descriptor))
@@ -3158,7 +3158,7 @@ them as list."
   "Return current arguments from transient PREFIX.
 
 If PREFIX is nil, it defaults to the value of `transient-current-command'."
-  (when-let ((prefix (or prefix (bound-and-true-p transient-current-command))))
+  (when-let* ((prefix (or prefix (bound-and-true-p transient-current-command))))
     (and (featurep 'kubed-transient)
          (fboundp 'transient-args)
          (transient-args prefix))))
@@ -3407,9 +3407,9 @@ local context."
                  cxt))))
      (list addr port api-prefix www-dir www-prefix context)))
   (let ((context (or context (kubed-local-context))))
-    (when-let ((proc (alist-get context kubed--proxy-alist
-                                nil nil #'string=))
-               ((process-live-p proc)))
+    (when-let* ((proc (alist-get context kubed--proxy-alist
+                                 nil nil #'string=))
+                ((process-live-p proc)))
       (if (y-or-n-p (concat "Proxy already running for context `" context
                             "'.  Stop it and start new proxy?"))
           (kill-process proc)
@@ -3444,9 +3444,9 @@ local context."
                  cxt))))
      (list context)))
   (let ((context (or context (kubed-local-context))))
-    (if-let ((proc (alist-get context kubed--proxy-alist
-                              nil nil #'string=))
-             ((process-live-p proc)))
+    (if-let* ((proc (alist-get context kubed--proxy-alist
+                               nil nil #'string=))
+              ((process-live-p proc)))
         (kill-process proc)
       (user-error "No proxy running for context `%s'" context))
     (message "Stopped proxy for context `%s'." context)))
