@@ -10,6 +10,21 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.7.0 in development
+
+** Kubed now distinguishes between "execution environments"
+
+Kubed commands run ~kubectl~ in the buffer from which you invoke them,
+so settings that affect ~kubectl~, from environment variables such as
+~KUBECONFIG~ to running on a whole other host via Tramp, can differ
+from one buffer to the next.  Kubed now treats each distinct
+combination of these settings as an "execution environment", and keeps
+its state separate for each one.  This lets you work in parallel with
+clusters reached through different ~KUBECONFIG~ files (for example as
+set per-directory by https://github.com/purcell/envrc).
+
+See feature request at https://lists.sr.ht/~eshel/kubed-devel/%3C80aeac01-e21a-4823-a5ae-abe7b7a7a6f7@app.fastmail.com%3E
+
 * Version 0.6.1 on 2026-04-13
 
 This is a maintenance release, it includes one important bug fix:
