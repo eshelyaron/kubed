@@ -67,8 +67,9 @@
 Each alist entry is (HOST . CONTEXT-AND-NAMESPACE), where HOST is either
 a remote host identifier (as returned by `file-remote-p') or nil which
 represents the local host, and CONTEXT-AND-NAMESPACE is either a cons
-cell (CONTEXT . NAMESPACE), or nil.  If it is nil, Kubed initializes
-CONTEXT-AND-NAMESPACE to a non-nil value next time Kubed consults it."
+cell (CONTEXT . NAMESPACE), or nil.  If it is nil, or if CONTEXT does not
+name an existing context, Kubed falls back to the kubeconfig default,
+namely the current `kubectl' context and its default namespace."
   :type '(alist
           :key-type
           (choice (const :tag "Local host" nil)
