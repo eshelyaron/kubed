@@ -3352,8 +3352,7 @@ argument) says to include managed fields in the comparison."
      (list (or definition (kubed-read-resource-definition-file-name))
            (or include-managed current-prefix-arg)
            context)))
-  (let ((buf (get-buffer-create "*kubed-diff*"))
-        (vars (kubed--execution-environment-buffer-locals))
+  (let ((vars (kubed--execution-environment-buffer-locals))
         (args (cons "diff"
                     (append
                      (when context (list "--context" context))
@@ -3361,25 +3360,32 @@ argument) says to include managed fields in the comparison."
                        (list "--show-managed-fields" "true"))
                      (list "-f" (if (bufferp definition) "-"
                                   (expand-file-name definition)))))))
-    (with-current-buffer buf
-      (setq buffer-read-only nil)
-      (delete-region (point-min) (point-max))
-      (fundamental-mode)
-      (dolist (kv vars) (set (make-local-variable (car kv)) (cdr kv)))
-      (if (bufferp definition)
-          (let ((tmpfile (make-temp-file "kubed")))
-            (unwind-protect
-                (with-current-buffer definition
-                  (write-region (point-min) (point-max) tmpfile)
-                  (apply #'process-file (kubed-kubectl-program)
-                         tmpfile buf nil args))
-              (delete-file tmpfile)))
-        (apply #'process-file (kubed-kubectl-program)
-               nil t nil args))
-      (setq buffer-read-only t)
-      (diff-mode)
-      (goto-char (point-min)))
-    (display-buffer buf)))
+    (let ((tmp (generate-new-buffer " *kubed-output*" t)))
+      (unwind-protect
+          (let ((status
+                 (if (bufferp definition)
+                     (let ((tmpfile (make-temp-file "kubed")))
+                       (unwind-protect
+                           (with-current-buffer definition
+                             (write-region (point-min) (point-max) tmpfile)
+                             (apply #'process-file (kubed-kubectl-program)
+                                    tmpfile tmp nil args))
+                         (delete-file tmpfile)))
+                   (apply #'process-file (kubed-kubectl-program)
+                          nil tmp nil args))))
+            (cond
+             ((zerop status)
+              (message "Kubernetes resource definition %s is up to date" definition))
+             ((= 1 status)
+              (with-current-buffer (generate-new-buffer "*kubed-diff*")
+                (insert-buffer-substring tmp)
+                (setq buffer-read-only t)
+                (diff-mode)
+                (dolist (kv vars) (set (make-local-variable (car kv)) (cdr kv)))
+                (goto-char (point-min))
+                (display-buffer (current-buffer))))
+             (t (error "`kubectl diff' failed"))))
+        (kill-buffer tmp)))))
 
 ;;;###autoload
 (defun kubed-exec
