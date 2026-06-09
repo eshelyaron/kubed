@@ -209,10 +209,9 @@ environment, as returned by `kubed-execution-environment-key'."
   (unless eenv (setq eenv (kubed-execution-environment-key)))
   (when (process-live-p (alist-get 'process (kubed--alist eenv type context namespace)))
     (user-error "Update in progress"))
-  (let* ((out (get-buffer-create (format " *kubed-get-%s*"        type)))
-         (err (get-buffer-create (format " *kubed-get-%s-stderr*" type)))
+  (let* ((out (generate-new-buffer (format " *kubed-get-%s*" type) t))
+         (err (generate-new-buffer (format "*kubed-update %s stderr*" type)))
          (columns (alist-get type kubed--columns '(("NAME:.metadata.name")) nil #'string=)))
-    (with-current-buffer out (erase-buffer))
     (setf (alist-get 'process (kubed--alist eenv type context namespace))
           (make-process
            :name (format "*kubed-get-%s*" type)
@@ -283,7 +282,11 @@ environment, as returned by `kubed-execution-environment-key'."
                (with-current-buffer err
                  (goto-char (point-max))
                  (insert "\n" status))
-               (display-buffer err))))))))
+               (display-buffer err)
+               ;; Keep ERR alive.
+               (setq err nil)))
+             (kill-buffer out)
+             (when (buffer-live-p err) (kill-buffer err)))))))
 
 (defvar-local kubed-display-resource-info nil
   "Information about Kubernetes resource that current buffer displays.
