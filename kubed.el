@@ -2741,11 +2741,20 @@ Interactively, prompt for CONTEXT with completion."
     (user-error "Failed to rename Kubernetes context `%s' to `%s'" old new))
   (message "Renamed Kubernetes context `%s' to `%s'." old new))
 
+(defvar kubed--display-config-buffer-alist nil)
+
 ;;;###autoload
 (defun kubed-display-config ()
   "Display current Kubernetes client settings in a YAML buffer."
   (interactive)
-  (let* ((buf (get-buffer-create "*kubed-config*"))
+  (let* ((eenv (kubed-execution-environment-key))
+         (buf (if-let* ((b (alist-get eenv kubed--display-config-buffer-alist
+                                      nil nil #'equal))
+                        (_ (buffer-live-p b)))
+                  b
+                (setf (alist-get eenv kubed--display-config-buffer-alist
+                                 nil nil #'equal)
+                      (generate-new-buffer "*kubed-config*"))))
          (vars (kubed--execution-environment-buffer-locals))
          (fun (lambda (&optional _ _)
                 (let ((inhibit-read-only t)
