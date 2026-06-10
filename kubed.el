@@ -202,6 +202,8 @@ such as `process-environment' and `exec-path' take effect."
 
 (defvar kubed--columns nil)
 
+(defvar-local kubed--update-in-progress nil)
+
 (defun kubed-update (type context &optional namespace eenv)
   "Update list of resources of type TYPE in CONTEXT and NAMESPACE.
 
@@ -212,8 +214,9 @@ environment, as returned by `kubed-execution-environment-key'."
     (user-error "Update in progress"))
   (let* ((out (generate-new-buffer (format " *kubed-get-%s*" type) t))
          (err (generate-new-buffer (format "*kubed-update %s stderr*" type)))
-         (columns (alist-get type kubed--columns '(("NAME:.metadata.name")) nil #'string=)))
-    (setf (alist-get 'process (kubed--alist eenv type context namespace))
+         (columns (alist-get type kubed--columns '(("NAME:.metadata.name")) nil #'string=))
+         (proc nil))
+    (setq proc
           (make-process
            :name (format "*kubed-get-%s*" type)
            :buffer out
@@ -269,6 +272,7 @@ environment, as returned by `kubed-execution-environment-key'."
                           (with-current-buffer buf
                             (when (derived-mode-p 'kubed-list-mode)
                               (revert-buffer)
+                              (setq kubed--update-in-progress nil)
                               (when-let* ((win (get-buffer-window)))
                                 (set-window-point win (point))
                                 (push buf bufs))))))
@@ -287,7 +291,18 @@ environment, as returned by `kubed-execution-environment-key'."
                ;; Keep ERR alive.
                (setq err nil)))
              (kill-buffer out)
-             (when (buffer-live-p err) (kill-buffer err)))))))
+             (when (buffer-live-p err) (kill-buffer err)))))
+    ;; Mark affected list buffers as being updated.
+    (dolist (buf (buffer-list))
+      (and (equal (buffer-local-value 'kubed-list-type buf) type)
+           (equal (buffer-local-value 'kubed-list-context buf) context)
+           (equal (buffer-local-value 'kubed-list-namespace buf) namespace)
+           (equal (kubed-execution-environment-key buf) eenv)
+           (with-current-buffer buf
+             (setq kubed--update-in-progress t))))
+    ;; Store and return the process object.
+    (setf (alist-get 'process (kubed--alist eenv type context namespace))
+          proc)))
 
 (defvar-local kubed-display-resource-info nil
   "Information about Kubernetes resource that current buffer displays.
@@ -1278,12 +1293,7 @@ prompt for CONTEXT as well."
 
 (defcustom kubed-list-mode-line-format
   '(:eval (cond
-           ((process-live-p
-             (alist-get 'process
-                        (kubed--alist (kubed-execution-environment-key)
-                                      kubed-list-type
-                                      kubed-list-context
-                                      kubed-list-namespace)))
+           (kubed--update-in-progress
             (propertize "[...]" 'help-echo "Updating..."))
            (kubed-list-filter
             (propertize
