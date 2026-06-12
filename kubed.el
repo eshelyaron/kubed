@@ -132,6 +132,31 @@ Each element is a cons cell (VARIABLE . VALUE) for a bound VARIABLE in
   (seq-keep (lambda (v) (and (boundp v) (cons v (symbol-value v))))
             kubed-execution-environment-buffer-locals))
 
+(defun kubed--eenv-minibuffer-setup-fn ()
+  (let ((vars (kubed--execution-environment-buffer-locals)))
+    (lambda ()
+      (dolist (kv vars) (set (make-local-variable (car kv)) (cdr kv))))))
+
+(defun kubed--cmp-read
+    ( prompt collection &optional predicate require-match
+      initial-input hist def inherit-input-method multi)
+  "Like `completing-read', but copy some buffer local variable to minibuffer.
+
+This copies the current buffer's values of the
+`kubed-execution-environment-buffer-locals' variables into the
+minibuffer, so that `kubectl' invocations during completion use the same
+execution environment as the calling buffer.
+
+PROMPT, COLLECTION, PREDICATE, REQUIRE-MATCH, INITIAL-INPUT, HIST, DEF
+and INHERIT-INPUT-METHOD are as for `completing-read'.
+Non-nil optional argument MULTI says to read multiple values with
+`completing-read-multiple' instead."
+  (minibuffer-with-setup-hook
+      (kubed--eenv-minibuffer-setup-fn)
+    (funcall (if multi #'completing-read-multiple #'completing-read)
+             prompt collection predicate require-match
+             initial-input hist def inherit-input-method)))
+
 (defvar kubed-execution-environment-key-function #'ignore
   "Function returning extra data for identifying the execution environment.
 
@@ -2712,7 +2737,7 @@ cached per execution environment."
   "Prompt with PROMPT for a Kubernetes context.
 
 Optional argument DEFAULT is the minibuffer default argument."
-  (completing-read (format-prompt prompt default)
+  (kubed--cmp-read (format-prompt prompt default)
                    (kubed-contexts)
                    nil 'confirm nil 'kubed-context-history default))
 
@@ -3098,7 +3123,7 @@ use it; otherwise, fall back to prompting."
           (null (cdr all))
           (car all))
      ;; No guessing, prompt.
-     (completing-read (format-prompt prompt default)
+     (kubed--cmp-read (format-prompt prompt default)
                       (completion-table-dynamic
                        (lambda (_)
                          (if (eq all 'unset)
@@ -3246,7 +3271,7 @@ one port-forwarding process, stop that process without prompting."
    (list
     (cond
      ((cdr (kubed-port-forward-process-alist))
-      (completing-read "Stop port-forwarding: "
+      (kubed--cmp-read "Stop port-forwarding: "
                        (completion-table-dynamic
                         #'kubed-port-forward-process-alist)
                        nil t))
@@ -3266,9 +3291,8 @@ one port-forwarding process, stop that process without prompting."
 Optional argument DEFAULT is the minibuffer default argument.  Non-nil
 optional argument MULTI says to read multiple image names and return
 them as list."
-  (funcall (if multi #'completing-read-multiple #'completing-read)
-           (format-prompt prompt default) nil nil nil nil
-           'kubed-container-images-history default))
+  (kubed--cmp-read (format-prompt prompt default) nil nil nil nil
+                   'kubed-container-images-history default nil multi))
 
 (defvar kubed-ingress-rule-history nil
   "Minibuffer history for `kubed-read-ingress-rules'.")
@@ -3633,8 +3657,7 @@ Optional argument DEFAULT is the minibuffer default argument; non-nil
 MULTI says to read multiple names and return them as a list; CONTEXT is
 the `kubectl' context to use, defaulting to the local context; and
 NAMESPACE is the namespace to use, or nil if TYPE is non-namespaced."
-  (funcall
-   (if multi #'completing-read-multiple #'completing-read)
+  (kubed--cmp-read
    (format-prompt prompt default)
    (let ((table 'unset))
      (lambda (s p a)
@@ -3644,13 +3667,13 @@ NAMESPACE is the namespace to use, or nil if TYPE is non-namespaced."
            (setq table (kubed-resource-names
                         type (or context (kubed-local-context)) namespace)))
          (complete-with-action a table s p))))
-   nil 'confirm nil (intern (concat "kubed-" type "-history")) default))
+   nil 'confirm nil (intern (concat "kubed-" type "-history")) default nil multi))
 
 (defun kubed-read-resource-type (prompt &optional default context)
   "Prompt with PROMPT for Kubernetes resource type in context CONTEXT.
 
 Optional argument DEFAULT is the minibuffer default argument."
-  (completing-read
+  (kubed--cmp-read
    (format-prompt prompt default)
    (kubed-api-resources context)
    nil 'confirm nil nil default))
@@ -3660,7 +3683,7 @@ Optional argument DEFAULT is the minibuffer default argument."
 
 Optional argument DEFAULT is the minibuffer default argument, and
 CONTEXT is the `kubectl' context to use."
-  (completing-read
+  (kubed--cmp-read
    (format-prompt prompt default)
    (lambda (s p a)
      (unless (eq a 'metadata)
@@ -3753,7 +3776,9 @@ following the value of `kubed-kubectl-program' and a space character."
                    (cons    (concat kubectl " " (car initial))
                          (+ (length kubectl) 1  (cdr initial)))
                  (concat kubectl " " initial))))
-    (cobra-read-command-line prompt init 'kubed-kubectl-command-history)))
+    (minibuffer-with-setup-hook
+        (kubed--eenv-minibuffer-setup-fn)
+      (cobra-read-command-line prompt init 'kubed-kubectl-command-history))))
 
 ;;;###autoload
 (defun kubed-kubectl-command (command)
