@@ -129,7 +129,7 @@ defaults to \"RESOURCEs\"."
        (interactive
         (list (append
                (kubed-transient-args)
-               (when-let ((res (tabulated-list-get-id)))
+               (when-let* ((res (tabulated-list-get-id)))
                  (list (concat ,(concat plural "/") res)))
                (unless (zerop kubed-logs-tail-lines)
                  (list (format "--tail=%d" kubed-logs-tail-lines)))
