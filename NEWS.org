@@ -21,7 +21,9 @@ from one buffer to the next.  Kubed now treats each distinct
 combination of these settings as an "execution environment", and keeps
 its state separate for each one.  This lets you work in parallel with
 clusters reached through different ~KUBECONFIG~ files (for example as
-set per-directory by https://github.com/purcell/envrc).
+set per-directory by https://github.com/purcell/envrc).  The new
+"Execution Environments" section in the Kubed manual provides
+additional details.
 
 See feature request at https://lists.sr.ht/~eshel/kubed-devel/%3C80aeac01-e21a-4823-a5ae-abe7b7a7a6f7@app.fastmail.com%3E
 
