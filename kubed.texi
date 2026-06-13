@@ -798,7 +798,7 @@ as follows:
 (setopt kubed-default-context-and-namespace-alist
         '((nil . ("my-context" . "my-namespace"))))
 
-;; Or, if you want to preserves other entries:
+;; Or, if you want to preserve other entries:
 
 (setf (alist-get nil kubed-default-context-and-namespace-alist)
       '("my-context" . "my-namespace"))
