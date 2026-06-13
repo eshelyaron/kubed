@@ -11,7 +11,7 @@
 @c %**end of header
 
 @copying
-This manual is for Kubed 0.6.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.7.0 (in development), a rich Emacs interface for Kubernetes.
 
 Copyright @copyright{} 2024-2026 Eshel Yaron.
 
@@ -40,7 +40,7 @@ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
 @node Top
 @top Kubed: Kubernetes, Emacs, done!
 
-This manual is for Kubed 0.6.1, a rich Emacs interface for Kubernetes.
+This manual is for Kubed 0.7.0 (in development), a rich Emacs interface for Kubernetes.
 
 @end ifnottex
 
@@ -211,6 +211,7 @@ The following sections describe in detail the various Kubed commands.
 * Display Resource::
 * Browse Resources::
 * Resource Logs::
+* Execution Environments::
 * Context and Namespace::
 * Transient Menus::
 * Scale Deployment::
@@ -642,13 +643,120 @@ List of functions to call, in order, to set up Kubernetes logs
 buffers.  The default value is @code{(view-mode)}.
 @end defopt
 
+@node Execution Environments
+@section Execution Environments
+
+Kubed has a notion of @emph{execution environments}, which is mostly
+relevant if you use Kubed to work with several distinct Kubernetes
+setups at once---for instance, clusters reached through different
+@env{KUBECONFIG} files, or clusters that you access via remote hosts
+(@pxref{Kubed over Tramp}).  If you only ever use a single local
+@command{kubectl} configuration, you can probably safely skip the rest
+of this section.
+
+@cindex execution environment
+@cindex how Kubed runs @command{kubectl}
+Kubed uses @command{kubectl} to interact with Kubernetes.  Just as Emacs
+commands that act on files use the @code{default-directory} of the
+buffer in which you invoke them (@pxref{File Names,,,emacs}), Kubed runs
+@command{kubectl} in the buffer from which you invoke a Kubed command.
+Consequently, several aspects of that buffer determine @emph{how} and
+@emph{where} @command{kubectl} runs:
+
+@itemize
+@item
+@cindex @command{kubectl} executable
+The @command{kubectl} executable itself.  Kubed consults the
+connection-local value of @code{kubed-kubectl-program} to decide which
+program to invoke (@pxref{Getting Started}), so you can use a different
+@command{kubectl} on different hosts (@pxref{Kubed over Tramp}).
+@item
+@cindex host, running @command{kubectl} on
+The host on which @command{kubectl} runs.  Kubed respects the buffer's
+@code{default-directory}: when it names a remote location, Kubed runs
+@command{kubectl} on that remote host via Tramp (@pxref{Kubed over Tramp}).
+@item
+@cindex @env{KUBECONFIG}
+@cindex environment variables, affecting @command{kubectl}
+Environment variables, through the buffer-local value of
+@code{process-environment}.  For example, the @env{KUBECONFIG} environment
+variable tells @command{kubectl} which configuration file to read, and
+hence which clusters, contexts and credentials are available.
+@item
+The executable search path, through the buffer-local value of
+@code{exec-path}, which Kubed uses to locate @command{kubectl}.
+@end itemize
+
+@cindex execution environment, definition
+These settings together make up the @dfn{execution environment}, which
+may vary from buffer to buffer.  Kubed treats each distinct combination
+of these settings as a separate environment, and keeps its
+state---cached resource lists, the default context and
+namespace...---separate for each execution environment.
+
+This is what lets you work in parallel with clusters reached through
+different @env{KUBECONFIG} files, even on the same host.  For example,
+if you use a different @env{KUBECONFIG} per project directory with
+packages such as @code{envrc} or @code{buffer-env}, then Kubed
+recognizes that buffers in different projects belong to different
+execution environments, so Kubed can tell apart contexts that happen to
+share a name across different configuration files, etc.
+
+To make this work consistently, Kubed propagates the relevant settings
+as needed.  When Kubed creates a buffer of its own---such as a resource
+list (@pxref{Browse Resources}) or a resource description
+(@pxref{Display Resource})---it copies the execution environment
+variables from the originating buffer into the new one, so that later
+@command{kubectl} invocations from that buffer use the same environment.
+Kubed likewise copies these variables into the minibuffer while you
+complete resource names and other arguments, so that completion
+candidates come from the right environment.  Lastly, Kubed can add a
+short label to the names of buffers that belong to a given execution
+environment, to help you tell them apart.
+
+@defopt kubed-execution-environment-buffer-locals
+List of buffer-local variables that affect how @command{kubectl} runs.
+Kubed copies the values of these variables from the originating buffer
+into the buffers that it creates and into the minibuffer during
+completion, and it takes them into account when telling execution
+environments apart.  The default value includes
+@code{process-environment} and @code{exec-path}.
+@end defopt
+
+@defopt kubed-execution-environment-label-function
+Function that returns a short label for the current buffer's execution
+environment, as either a string or @code{nil}.  Kubed uses this label to
+name resource list buffers that belong to different execution
+environments.  The default function returns the remote host of
+@code{default-directory}, if any, and @code{nil} for the local host.
+@end defopt
+
+Most users do not need to call the following function directly, but it can
+be useful when extending Kubed (@pxref{Extending Kubed}):
+
+@defun kubed-execution-environment-key &optional buffer
+Return a key that identifies the execution environment of @var{buffer}
+(by default the current buffer).  The key incorporates the remote host of
+@var{buffer}'s @code{default-directory}, the value of
+@code{kubed-kubectl-program}, and the buffer-local values of the
+@code{kubed-execution-environment-buffer-locals} variables.  Kubed uses
+this key to index its per-environment state.  To make Kubed distinguish
+execution environments by additional criteria, set the variable
+@code{kubed-execution-environment-key-function} to a function that returns
+extra data to include in the key.
+@end defun
+
+Within a single execution environment, Kubed organizes your work by
+@command{kubectl} context and Kubernetes namespace, which the next section
+describes.  @xref{Context and Namespace}.
+
 @node Context and Namespace
 @section Context and Namespace
 
-Kubed uses @command{kubectl} to interact with Kubernetes clusters, and
-you can use multiple @command{kubectl} @dfn{contexts} in Kubed to work
-with different Kubernetes clusters in parallel.  Within each context,
-Kubed lets you work in multiple @dfn{namespaces} too.  In general,
+Within an execution environment (@pxref{Execution Environments}), you can
+use multiple @command{kubectl} @dfn{contexts} in Kubed to work with
+different Kubernetes clusters in parallel.  Within each context, Kubed
+lets you work in multiple @dfn{namespaces} too.  In general,
 each buffer has its own @dfn{local context} and @dfn{local namespace},
 and Kubed commands use these local context and namespace by default.
 This is similar to how different buffers have different values of
@@ -662,14 +770,13 @@ the resources the buffer displays.  For non-Kubed buffers, the user
 option @code{kubed-default-context-and-namespace-alist} determines the
 default local context and namespace.
 
-In addition to @command{kubectl} contexts, Kubed is aware of the
-@dfn{host} on which it invokes @command{kubectl}.  When
-@code{default-directory} is a remote location (@pxref{Remote Files,,,
-emacs}), Kubed runs @command{kubectl} on that remote host rather than on
-the local machine.  Each host has its own independent set of
-@command{kubectl} contexts, so you can simultaneously work with
-Kubernetes clusters reachable from different hosts.
-@xref{Kubed over Tramp} for more details.
+Contexts and namespaces are scoped to the execution environment in which
+Kubed encounters them (@pxref{Execution Environments}): each execution
+environment has its own independent set of @command{kubectl} contexts and
+namespaces, so you can simultaneously work with Kubernetes clusters that
+belong to different environments---for instance, clusters reachable from
+different hosts (@pxref{Kubed over Tramp}), or selected by different
+@env{KUBECONFIG} files.
 
 @defopt kubed-default-context-and-namespace-alist
 Association list mapping hosts to their default @command{kubectl}
@@ -679,10 +786,9 @@ cons cell @w{@code{(@var{host} . @var{context-and-namespace})}}, where
 returned by @code{file-remote-p}, e.g. @file{/ssh:user@@some.host:}), or
 @code{nil} for the local host.  @var{context-and-namespace} is either a
 cons cell @w{@code{(@var{context} . @var{namespace})}}, or @code{nil}.
-If it is @code{nil}, Kubed initializes the entry to a cons cell with the
-current @command{kubectl} context and the default namespace of that
-context on the first time Kubed consults this option for the given
-@var{host}.
+If it is @code{nil}, or if @var{context} does not name an existing
+@command{kubectl} context, Kubed falls back to the current
+@command{kubectl} context and its default namespace.
 
 For example, you can configure Kubed to use the @code{my-context}
 context and @code{my-namespace} namespace on the local host by default
@@ -833,7 +939,8 @@ Kubed can run @command{kubectl} on remote hosts, letting you manage
 Kubernetes clusters that are only reachable from a specific machine,
 or use a @command{kubectl} installation that lives on a remote server.
 This works by leveraging Emacs's Tramp remote file access facility
-(@pxref{Top,,,tramp}).
+(@pxref{Top,,,tramp}).  The remote host is one aspect of a buffer's
+execution environment (@pxref{Execution Environments}).
 
 Essentially, Kubed respects the value of @code{default-directory} when
 deciding where to run @command{kubectl}.  When @code{default-directory}
@@ -846,12 +953,15 @@ example, by opening a file on a remote server with @kbd{C-x C-f} and
 Tramp file name syntax, such as @file{/ssh:user@@some.host:/home/user/}.
 
 Each remote host has its own independent set of @command{kubectl}
-contexts and namespaces.  Kubed keeps track of the default context and
+contexts and namespaces, and Kubed keeps track of the default context and
 namespace per host in the user option
 @code{kubed-default-context-and-namespace-alist}
 (@pxref{Context and Namespace}).  When Kubed list buffers are showing
-resources fetched from a remote host, the buffer name includes
-@w{@samp{ from @var{host}}} to make it clear which host was used.
+resources fetched from a remote host, the buffer name includes a label
+that identifies the host, computed by
+@code{kubed-execution-environment-label-function}.  By default this label
+is the remote host, so such buffer names get a @w{@samp{ from @var{host}}}
+suffix to make it clear which host was used.
 
 @cindex @code{kubed-kubectl-program}, per-host
 You may have @command{kubectl} installed at different paths on different
