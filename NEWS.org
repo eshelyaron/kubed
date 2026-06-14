@@ -10,7 +10,10 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
-* Version 0.7.0 in development
+* Version 0.7.0 on 2026-06-14
+
+This release includes several minor improvements and bug fixes,
+along with one larger new feature:
 
 ** Kubed now distinguishes between "execution environments"
 
