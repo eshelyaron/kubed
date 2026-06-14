@@ -227,7 +227,21 @@ such as `process-environment' and `exec-path' take effect."
 
 (defvar kubed--columns nil)
 
-(defvar-local kubed--update-in-progress nil)
+(defvar-local kubed--update-in-progress nil
+  "Non-nil while a `kubed-update' is in progress for the current list buffer.")
+
+(defvar-local kubed--last-update-failed nil
+  "Non-nil if the last `kubed-update' for the current list buffer failed.")
+
+(defun kubed--list-buffers (eenv type context namespace)
+  "Return live Kubed list buffers showing TYPE in EENV, CONTEXT and NAMESPACE."
+  (seq-filter
+   (lambda (buf)
+     (and (equal (buffer-local-value 'kubed-list-type buf) type)
+          (equal (buffer-local-value 'kubed-list-context buf) context)
+          (equal (buffer-local-value 'kubed-list-namespace buf) namespace)
+          (equal (kubed-execution-environment-key buf) eenv)))
+   (buffer-list)))
 
 (defun kubed-update (type context &optional namespace eenv)
   "Update list of resources of type TYPE in CONTEXT and NAMESPACE.
@@ -255,76 +269,67 @@ environment, as returned by `kubed-execution-environment-key'."
                      (when namespace (list "--namespace" namespace)))
            :sentinel
            (lambda (_proc status)
-             (cond
-              ((string= status "finished\n")
-               (let (new offsets eol)
-                 (with-current-buffer out
-                   (goto-char (point-min))
-                   (setq eol (pos-eol))
-                   (while (re-search-forward "[^ ]+" eol t)
-                     (push (1- (match-beginning 0)) offsets))
-                   (setq offsets (nreverse offsets))
-                   (forward-char 1)
-                   (while (not (eobp))
-                     (let ((cols nil)
-                           (beg (car offsets))
-                           (ends (append (cdr offsets)
-                                         (list (- (pos-eol) (point))))))
-                       (dolist (column columns)
-                         (let ((str (string-trim (buffer-substring
-                                                  (+ (point) beg)
-                                                  (+ (point) (car ends))))))
-                           (push (if-let* ((f (cdr column))) (funcall f str) str)
-                                 cols)
-                           (setq beg (pop ends))))
-                       (push (nreverse cols) new))
-                     (forward-line 1)))
-                 (let ((buf (alist-get
-                             'buffer
-                             (kubed--alist eenv type context namespace))))
+             (if (equal status "finished\n")
+                 (let (new offsets eol)
+                   (with-current-buffer out
+                     (goto-char (point-min))
+                     (setq eol (pos-eol))
+                     (while (re-search-forward "[^ ]+" eol t)
+                       (push (1- (match-beginning 0)) offsets))
+                     (setq offsets (nreverse offsets))
+                     (forward-char 1)
+                     (while (not (eobp))
+                       (let ((cols nil)
+                             (beg (car offsets))
+                             (ends (append (cdr offsets)
+                                           (list (- (pos-eol) (point))))))
+                         (dolist (column columns)
+                           (let ((str (string-trim (buffer-substring
+                                                    (+ (point) beg)
+                                                    (+ (point) (car ends))))))
+                             (push (if-let* ((f (cdr column))) (funcall f str) str)
+                                   cols)
+                             (setq beg (pop ends))))
+                         (push (nreverse cols) new))
+                       (forward-line 1)))
+                   (kill-buffer out)
+                   (kill-buffer err)
                    (setf (kubed--alist eenv type context namespace)
                          `((resources
                             ,@(mapcar
                                (lambda (c) (list (car c) (apply #'vector c)))
-                               new))
-                           (buffer . ,buf))))
-                 (let ((bufs nil))
-                   (dolist (buf (buffer-list))
-                     (and (equal (buffer-local-value 'kubed-list-type buf) type)
-                          (equal (buffer-local-value 'kubed-list-context buf) context)
-                          (equal (buffer-local-value 'kubed-list-namespace buf) namespace)
-                          (equal (kubed-execution-environment-key buf) eenv)
-                          (with-current-buffer buf
-                            (when (derived-mode-p 'kubed-list-mode)
-                              (revert-buffer)
-                              (setq kubed--update-in-progress nil)
-                              (when-let* ((win (get-buffer-window)))
-                                (set-window-point win (point))
-                                (push buf bufs))))))
-                   (walk-windows
-                    (lambda (win)
-                      (let ((buf (window-buffer win)))
-                        (when (memq buf bufs)
-                          (set-window-point
-                           win (with-current-buffer buf (point))))))))
-                 (message (format "Updated Kubernetes %S." type))))
-              ((string= status "exited abnormally with code 1\n")
+                               new))))
+                   (let ((bufs nil))
+                     (dolist (buf (kubed--list-buffers eenv type context namespace))
+                       (with-current-buffer buf
+                         (revert-buffer)
+                         (when-let* ((win (get-buffer-window)))
+                           (set-window-point win (point))
+                           (push buf bufs))))
+                     (walk-windows
+                      (lambda (win)
+                        (let ((buf (window-buffer win)))
+                          (when (memq buf bufs)
+                            (set-window-point
+                             win (with-current-buffer buf (point))))))))
+                   (dolist (buf (kubed--list-buffers eenv type context namespace))
+                     (with-current-buffer buf
+                       (setq kubed--update-in-progress nil
+                             kubed--last-update-failed nil)))
+                   (message (format "Updated Kubernetes %S." type)))
+               (kill-buffer out)
+               (dolist (buf (kubed--list-buffers eenv type context namespace))
+                 (with-current-buffer buf
+                   (setq kubed--update-in-progress nil
+                         kubed--last-update-failed t)))
                (with-current-buffer err
                  (goto-char (point-max))
                  (insert "\n" status))
-               (display-buffer err)
-               ;; Keep ERR alive.
-               (setq err nil)))
-             (kill-buffer out)
-             (when (buffer-live-p err) (kill-buffer err)))))
-    ;; Mark affected list buffers as being updated.
-    (dolist (buf (buffer-list))
-      (and (equal (buffer-local-value 'kubed-list-type buf) type)
-           (equal (buffer-local-value 'kubed-list-context buf) context)
-           (equal (buffer-local-value 'kubed-list-namespace buf) namespace)
-           (equal (kubed-execution-environment-key buf) eenv)
-           (with-current-buffer buf
-             (setq kubed--update-in-progress t))))
+               (display-buffer err)))))
+    (dolist (buf (kubed--list-buffers eenv type context namespace))
+      (with-current-buffer buf
+        (setq kubed--update-in-progress t
+              kubed--last-update-failed nil)))
     ;; Store and return the process object.
     (setf (alist-get 'process (kubed--alist eenv type context namespace))
           proc)))
@@ -1317,13 +1322,19 @@ prompt for CONTEXT as well."
             (when context (list "--context" context))))))
 
 (defcustom kubed-list-mode-line-format
-  '(:eval (cond
-           (kubed--update-in-progress
-            (propertize "[...]" 'help-echo "Updating..."))
-           (kubed-list-filter
-            (propertize
-             (concat "[" (mapconcat #'prin1-to-string kubed-list-filter " ") "]")
-             'help-echo "Current filter"))))
+  '(kubed--last-update-failed
+    (:propertize "[!]"
+                 help-echo "Last update failed"
+                 mouse-face mode-line-highlight)
+    (kubed--update-in-progress
+     (:propertize "[...]"
+                  help-echo "Updating..."
+                  mouse-face mode-line-highlight)
+     (kubed-list-filter
+      (:propertize
+       (:eval (concat "[" (mapconcat #'prin1-to-string kubed-list-filter " ") "]"))
+       help-echo "Current filter"
+       mouse-face mode-line-highlight))))
   "Mode line construct for indicating status of Kubernetes resources list."
   :type 'sexp
   :risky t)
@@ -1778,34 +1789,29 @@ a prefix argument \\[universal-argument], prompt for CONTEXT too."
 
        (defun ,buff-fun (context . ,(when namespaced '(namespace)))
          (let ((eenv (kubed-execution-environment-key)))
-           (if-let* ((buf (alist-get
-                           'buffer
-                           (kubed--alist eenv ,(symbol-name plrl-var) context
-                                         ,(when namespaced 'namespace))))
-                     (_ (buffer-live-p buf)))
-               buf
-             (let ((buf-name (format ,(format "*Kubed %S%%s*" plrl-var)
-                                     (concat
-                                      ,(if namespaced
-                                           `(concat "@" namespace "[" context "]")
-                                         `(concat "[" context "]"))
-                                      (when-let* ((label (funcall kubed-execution-environment-label-function)))
-                                        (concat " from " label)))))
-                   (vars (kubed--execution-environment-buffer-locals)))
-               (with-current-buffer (generate-new-buffer buf-name)
-                 (,mod-name)
-                 (dolist (kv vars) (set (make-local-variable (car kv)) (cdr kv)))
-                 (setq kubed-list-context context
-                       ,@(when namespaced
-                           '(kubed-list-namespace namespace)))
-                 (kubed-list-update)
-                 (tabulated-list-print)
-                 (setf
-                  (alist-get
-                   'buffer
-                   (kubed--alist eenv ,(symbol-name plrl-var) context
-                                 ,(when namespaced 'namespace)))
-                  (current-buffer)))))))
+           (or
+            ;; Reuse an existing list buffer for this execution environment,
+            ;; if any (the user may have several, e.g. via `clone-buffer').
+            (car (kubed--list-buffers
+                  eenv ,(symbol-name plrl-var) context
+                  ,(when namespaced 'namespace)))
+            (let ((buf-name (format ,(format "*Kubed %S%%s*" plrl-var)
+                                    (concat
+                                     ,(if namespaced
+                                          `(concat "@" namespace "[" context "]")
+                                        `(concat "[" context "]"))
+                                     (when-let* ((label (funcall kubed-execution-environment-label-function)))
+                                       (concat " from " label)))))
+                  (vars (kubed--execution-environment-buffer-locals)))
+              (with-current-buffer (generate-new-buffer buf-name)
+                (,mod-name)
+                (dolist (kv vars) (set (make-local-variable (car kv)) (cdr kv)))
+                (setq kubed-list-context context
+                      ,@(when namespaced
+                          '(kubed-list-namespace namespace)))
+                (kubed-list-update)
+                (tabulated-list-print)
+                (current-buffer))))))
 
        (defun ,list-cmd (context . ,(when namespaced '(namespace)))
          ,(if namespaced

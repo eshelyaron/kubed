@@ -510,11 +510,13 @@ fetching updated data from Kubernetes.  You can still invoke
 @vindex kubed-list-mode-line-format
 Whenever Kubed is fetching data from Kubernetes to update a resources
 list buffer, the mode line of that list buffer shows the @samp{[...]}
-indicator.  You can set user option @code{kubed-list-mode-line-format}
-to customize this indicator.
+indicator.  If an update fails, it shows @samp{[!]} instead, until the
+next successful update.  You can set user option
+@code{kubed-list-mode-line-format} to customize these indicators.
 
 @menu
 * List Filter::
+* Multiple List Buffers::
 @end menu
 
 @node List Filter
@@ -587,6 +589,21 @@ This filter matches resources named either @samp{spam} or
 While entering a filter in the minibuffer, @kbd{@key{TAB}} completion
 is available for column names and values.  To clear the filter, just
 exit the minibuffer with an empty input.
+
+@node Multiple List Buffers
+@subsection Multiple List Buffers
+
+After you use a command such as @code{kubed-list-pods} to pop up a
+resources list buffer, invoking that command again for the same
+execution environment, context, and namespace reuses the existing
+buffer instead of creating a new one.
+
+To show the same resources in more than one buffer---for example, to
+apply a different filter (@pxref{List Filter}) or sort order in
+each---@emph{clone} a list buffer with @kbd{C-x x n}
+(@code{clone-buffer}).  All buffers showing the same resources share
+their data, so whenever Kubed fetches a fresh update from the cluster,
+every one of them refreshes together.
 
 @node Resource Logs
 @section Resource Logs
