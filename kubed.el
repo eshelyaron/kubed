@@ -49,6 +49,7 @@
 ;;; Code:
 
 (require 'kubed-common)
+(require 'subr-x) ; For `replace-region-contents' before Emacs 31.
 
 (defgroup kubed nil
   "Kubernetes interface."
