@@ -10,6 +10,13 @@ for Kubernetes.
 For further details, see the Kubed manual:
 [[https://eshelyaron.com/kubed.html][https://eshelyaron.com/kubed.html]].
 
+* Version 0.7.1 on 2026-06-19
+
+This is a bugfix release, it fixes a regression in version 0.7.0
+that caused reverting resource YAML buffers to fail in Emacs 29/30.
+
+See report at https://github.com/eshelyaron/kubed/pull/21
+
 * Version 0.7.0 on 2026-06-14
 
 This release includes several minor improvements and bug fixes,
