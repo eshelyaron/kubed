@@ -926,7 +926,7 @@ regardless of QUIET."
   (interactive "" kubed-list-mode)
   (kubed-update kubed-list-type kubed-list-context kubed-list-namespace)
   (force-mode-line-update)
-  (unless quiet (minibuffer-message (format "Updating Kubernetes %S..." kubed-list-type))))
+  (unless quiet (message (format "Updating Kubernetes %S..." kubed-list-type))))
 
 (defun kubed-list-delete-marked ()
   "Delete marked Kubernetes resources."
